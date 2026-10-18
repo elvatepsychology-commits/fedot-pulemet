@@ -229,6 +229,11 @@ FD.roast = function (R) {
     else out.push({ mood: 'happy', text: R.peakNewC + ' новых кампаний за день. Охуенно, это уровень Измаилова. Вот так и ебашь.' });
     if (R.peakLive < 30) out.push({ mood: null, text: 'Живых кампаний максимум ' + R.peakLive + '. У Измаилова было восемьдесят две. Объём — твоя главная дыра.' });
   }
+  var sts = (R.structs || []).filter(function (s) { return s.k && s.k !== '?' && s.spend >= 150; });
+  if (sts.length >= 2) {
+    var best = sts.slice().sort(function (a, b) { return b.roi - a.roi; })[0], worst = sts.slice().sort(function (a, b) { return a.roi - b.roi; })[0];
+    if (best.roi - worst.roi >= 30) out.push({ mood: worst.roi < 0 ? 'angry' : null, text: 'Схемы: ' + best.k + ' даёт ' + (best.roi >= 0 ? 'плюс ' : 'минус ') + Math.abs(Math.round(best.roi)) + ', а ' + worst.k + ' ' + (worst.roi >= 0 ? 'плюс ' : 'минус ') + Math.abs(Math.round(worst.roi)) + ' процентов. Но сначала проверь, не рубил ли ты ' + worst.k + ' на пятнадцати баксах. Если рубил, схема тут ни при чём.' });
+  }
   if (R.drop[0] && R.drop[0] < 20) out.push({ mood: 'angry', text: 'Креатив без депа ты бросаешь в среднем на ' + R.drop[0] + ' баксах. Вся команда — на двадцати пяти, а каждый десятый держит до восьмидесяти четырёх. Ты убиваешь их раньше, чем они проснулись. До тридцати руки убрал.' });
   if (t.ctr && t.ctr < 3.2) out.push({ mood: null, text: 'Кликают ' + t.ctr.toFixed(1) + ' из сотни. У пацанов три и девять. Первые две строки истории говно, переписывай крючок.' });
   if (t.reg) {
