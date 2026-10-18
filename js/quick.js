@@ -111,9 +111,11 @@ FD.pbMerge = function (list) {
 
 /* общий ключ кампании и креатива для обеих выгрузок */
 FD.normCamp = function (n) { return String(n || '').replace(/\s+by\s+\S+\s*$/i, '').replace(/\s+/g, ' ').replace(/\s+[-—–]\s+(Copy|Копия)( \d+)?$/i, '').trim(); };
+/* для сопоставления FB ↔ Power BI: без номера Кейтаро в начале (кампании переименовывают 3863 → 4499) */
+FD.matchCamp = function (n) { return FD.normCamp(n).replace(/^\d{3,6}\s*\|\s*/, ''); };
 FD.CR_RX = /(?:^|[\s|_])([A-Z]{2}\d{4})(?=[-.\s|_]|$)/;
 FD.crKey = function (camp, ad, adset, mode) {
-  if (mode === 'camp') return FD.normCamp(camp) || String(ad || '');
+  if (mode === 'camp') return FD.matchCamp(camp) || String(ad || '');
   var src = [camp, adset, ad];
   for (var i = 0; i < src.length; i++) { var m = String(src[i] || '').match(FD.CR_RX); if (m) return m[1]; }
   if (ad) return String(ad).replace(/ \d+$/, '');
@@ -171,8 +173,8 @@ FD.quick = function (pb, fb, period, mode) {
     if (x.camp && (FD.parseCamp(x.camp).nd || !/\|/.test(x.camp) || /^US \|/.test(x.camp)) && x.spend < 0.5) { orphan.fd += x.fd; orphan.rev += x.rev; return; }
     var key = FD.crKey(x.camp, x.ad, x.adset, mode);
     var o = slot(key); o.pb = o.pb || z(); add(o.pb, x); o.pb.n++;
-    if (x.camp) { var cn = FD.normCamp(x.camp); o.cm = o.cm || {}; o.cm[cn] = o.cm[cn] || {}; o.cm[cn].pb = o.cm[cn].pb || z(); add(o.cm[cn].pb, x); }
-    if (x.camp) { o.camps[FD.normCamp(x.camp)] = 1; o.info = o.info || FD.campInfo(x.camp); }
+    if (x.camp) { var cn = FD.matchCamp(x.camp); o.cm = o.cm || {}; o.cm[cn] = o.cm[cn] || {}; o.cm[cn].pb = o.cm[cn].pb || z(); add(o.cm[cn].pb, x); }
+    if (x.camp) { o.camps[FD.matchCamp(x.camp)] = 1; o.info = o.info || FD.campInfo(x.camp); }
     if (!o.geo || o.geo === '?') o.geo = FD.geoGuess(x.camp, x.ad);
     if (x.ad && /^[A-Z]{2}-/.test(x.ad)) { var pc = FD.parseCreative(x.ad); if (pc) { o.story = o.story || pc.story; if (pc.geo && o.info && !o.info.st) o.info.st = pc.geo; o.casino = o.casino || pc.casino; o.st2 = o.st2 || pc.geo; } }
   });
@@ -182,8 +184,8 @@ FD.quick = function (pb, fb, period, mode) {
     if (!o.geo || o.geo === '?') o.geo = FD.geoGuess(x.camp, x.ad);
     if (x.status) { o.st_n = (o.st_n || 0) + 1; if (!FD.OFF_RX.test(x.status)) o.st_on = (o.st_on || 0) + 1; }
     o.loc = o.loc || {}; var lk = x.acct + '\u0001' + (x.camp || x.ad || ''), L0 = o.loc[lk] || (o.loc[lk] = { acct: x.acct, no: fb.acctNo ? fb.acctNo[x.acct] : null, camp: x.camp || x.ad || '', on: false, st: false, spend: 0, fd: 0, n: 0 }); L0.spend += x.spend; L0.fd += x.fd; L0.n++; if (x.status) { L0.st = true; if (!FD.OFF_RX.test(x.status)) L0.on = true; }
-    if (x.camp) { var cn = FD.normCamp(x.camp); o.cm = o.cm || {}; o.cm[cn] = o.cm[cn] || {}; o.cm[cn].fb = o.cm[cn].fb || z(); add(o.cm[cn].fb, x); }
-    if (x.camp) { o.camps[FD.normCamp(x.camp)] = 1; o.info = o.info || FD.campInfo(x.camp); }
+    if (x.camp) { var cn = FD.matchCamp(x.camp); o.cm = o.cm || {}; o.cm[cn] = o.cm[cn] || {}; o.cm[cn].fb = o.cm[cn].fb || z(); add(o.cm[cn].fb, x); }
+    if (x.camp) { o.camps[FD.matchCamp(x.camp)] = 1; o.info = o.info || FD.campInfo(x.camp); }
   });
   var LIFE = {};
   if (pb) pb.recs.forEach(function (x) {
@@ -243,6 +245,7 @@ FD.quick = function (pb, fb, period, mode) {
     if (!o.st_n) return;
     /* если у креатива есть кампании, которых нет в выгрузке FB (другой РК), статус неизвестен — не ругаем */
     var unseen = Object.keys(o.cm || {}).some(function (k) { var c = o.cm[k]; return c.pb && c.pb.spend > 1 && !c.fb; });
+    o.fbOff = !o.st_on; o.unseen = unseen;
     if (unseen) { o.st_n = 0; return; }
     o.off = !o.st_on;
     if (!o.off) return;
@@ -264,13 +267,13 @@ FD.quick = function (pb, fb, period, mode) {
     fb.recs.filter(inP).forEach(function (x) {
       var a = accts[x.acct] || (accts[x.acct] = { name: x.acct, rows: 0, rowsOn: 0, spend: 0, clk: 0, regs: 0, fd: 0, rev: 0, camps: {}, on: {}, pbFd: 0, pbRev: 0, pbSpend: 0, shared: 0 });
       a.spend += x.spend; a.clk += x.clk; a.regs += x.regs; a.fd += x.fd; a.rev += x.rev;
-      var cn = FD.normCamp(x.camp || x.ad); a.camps[cn] = 1; a.rows++;
+      var cn = FD.matchCamp(x.camp || x.ad); a.camps[cn] = 1; a.rows++;
       if (x.status && !FD.OFF_RX.test(x.status)) { a.on[cn] = 1; a.rowsOn++; }
       (campAcct[cn] = campAcct[cn] || {})[x.acct] = 1;
     });
     if (pb) {
       var pbBy = {};
-      pb.recs.filter(inP).forEach(function (x) { if (!x.camp) return; var cn = FD.normCamp(x.camp), q = pbBy[cn] || (pbBy[cn] = { fd: 0, rev: 0, spend: 0 }); q.fd += x.fd; q.rev += x.rev; q.spend += x.spend; });
+      pb.recs.filter(inP).forEach(function (x) { if (!x.camp) return; var cn = FD.matchCamp(x.camp), q = pbBy[cn] || (pbBy[cn] = { fd: 0, rev: 0, spend: 0 }); q.fd += x.fd; q.rev += x.rev; q.spend += x.spend; });
       Object.keys(campAcct).forEach(function (cn) {
         var owners = Object.keys(campAcct[cn]), q = pbBy[cn]; if (!q) return;
         if (owners.length === 1) { var a = accts[owners[0]]; a.pbFd += q.fd; a.pbRev += q.rev; a.pbSpend += q.spend; }
@@ -402,17 +405,25 @@ FD.cowardText = function (o, i) {
 
 /* «Что делать прямо сейчас»: общий список действий + можно ли это делать в это время (nyH — час в Нью-Йорке, off — разница Минск−NY) */
 FD.nowPlan = function (Q, nyH, off) {
-  var B = { on: [], dub: [], scale: [], reup: [], cut: [], kill: [], keep: [], doneKill: [], dead: [] };
+  var B = { onDub: [], maybe: [], skip: [], on: [], dub: [], scale: [], reup: [], cut: [], kill: [], keep: [], doneKill: [], dead: [], nofb: [] };
   var hasSt = Q.hasStatus;
   Q.list.forEach(function (o) {
-    var ds = o.life || o, known = hasSt && o.st_n, isOff = !!(known && o.off), isOn = !known || !o.off;
+    var ds = o.life || o, known = !!(hasSt && o.fb && o.fbOff != null), isOff = !!(known && o.fbOff), isOn = !known || !o.fbOff;
+    if (hasSt && !o.fb) { if (o.v.code !== 'idle') B.nofb.push({ o: o, off: null }); return; }
     var push = function (k, it) { it.off = isOff; B[k].push(it); };
     if (o.v.code === 'idle') { if (known && !isOff && !ds.fd) push('reup', { o: o, why: 'включён, а FB почти не тратит (день ' + o.age + ') — эту выключи, залей копию в другой РК' }); return; }
+    var cw = !o.nonUS && ['keep', 'hold', 'dub'].indexOf(o.v.code) > -1 && ds.spend >= 5;
     var win = o.v.code === 'dub' || (o.v.code === 'hold' && ds.fd > 0);
     if (isOff) {
-      if (win) push('reup', { o: o, why: 'выключен, а был в плюсе — залей копии в другие РК' });
-      else if (o.coward && o.age >= 3 && ds.spend < 30 && !ds.fd) push('dead', { o: o });
-      else if (o.coward) push('on', { o: o, why: 'вырубил рано — по лестнице ещё ' + (o.v.code === 'keep' ? 'рано решать' : 'держать') });
+      if (o.v.code === 'dub') push('onDub', { o: o, why: 'был в плюсе — включи обратно и сразу дубли' });
+      else if (win) push('on', { o: o, why: 'был в плюсе — включи обратно, дубли пока рано' });
+      else if (cw && o.age >= 3 && ds.spend < 30 && !ds.fd) push('dead', { o: o });
+      else if (cw) {
+        var R = o._risk || (o._risk = FD.riskOf(o));
+        if (R.lvl === 'go' || R.lvl === 'small') push('on', { o: o, why: 'вырубил рано — у таких шансы есть' });
+        else if (R.lvl === 'no') push('skip', { o: o });
+        else push('maybe', { o: o, why: R.lvl === 'lotto' ? 'лотерея: чаще сливает, но иногда выстреливает жирно' : 'похожих случаев мало — решай сам' });
+      }
       else if (o.v.code === 'kill' || o.v.code === 'cut') push('doneKill', { o: o });
       return;
     }

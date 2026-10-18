@@ -263,7 +263,7 @@
     return { tm: tm, u: u, P: FD.nowPlan(Q, u.nyH, off) };
   }
 
-  var RISKY = { on: 1, reup: 1, keep: 1, dub: 1, scale: 1 };
+  var RISKY = { onDub: 1, on: 1, maybe: 1, reup: 1, keep: 1, dub: 1, scale: 1 };
   var RISK_LBL = { go: ['good', '🟢 Рискуй'], small: ['warn', '🟡 Рискни по-малому'], lotto: ['warn', '🎲 Лотерея'], no: ['kill', '🔴 Не стоит'], thin: ['muted', '⚪ Мало данных'] };
   function riskable(o) { return o.v.code !== 'idle' && o.v.code !== 'wait'; }
   function riskOf(o) { return o._risk || (o._risk = FD.riskOf(o)); }
@@ -280,15 +280,17 @@
         reup: { go: 'Риск оправдан — перезаливай копиями смело.', small: 'Монетка. Перезалей 1–2 копии, не больше.', lotto: 'Лотерея: перезалей одну копию, не больше.', no: 'Шансы плохие — перезаливать не обязательно, лучше новый креатив.' },
         keep: { go: 'Держи, шансы хорошие.', small: 'Держи, но только до стопа.', lotto: 'Лотерея: держи только до стопа.', no: 'Шансы плохие — можно выключить уже сейчас, не дожидаясь лестницы.' },
         dub: { go: 'Дублируй смело.', small: 'Дублируй, но 1–2 копии.', lotto: 'Дублируй одну копию.', no: 'Дублировать не спеши.' }
-      }, vv = V[k] || V.dub;
+      }, vv = null;
+      V.onDub = { go: 'Включай обратно и дублируй смело.', small: 'Включай и дублируй, но копий 1–2.', lotto: 'Оригинал дальше — лотерея. Включи, но главное — дубли.', no: 'Сам оригинал после таких цифр у пацанов чаще выгорал. Включи без больших надежд на него — главное тут дубли, они начинают с нуля.' };
+      vv = V[k === 'maybe' ? 'on' : k] || V.dub;
       vv = vv[R.lvl] || vv.no;
-      t += vv + (R.lvl !== 'no' ? ' Стоп — $' + R.stop + ' (ещё $' + R.add + '): дошёл до этой суммы без депа — выкл без жалости.' : '');
+      t += vv + (R.lvl !== 'no' || k === 'onDub' ? ' Стоп оригиналу — $' + R.stop + ' (ещё $' + R.add + '): дошёл до этой суммы без депа — выкл без жалости.' : '');
     }
     return '<div class="risk ' + L[0] + '"><span class="pill ' + L[0] + '">' + L[1] + '</span> <span class="sm">' + t + '</span></div>';
   }
   function riskSummary(B, F) {
     var g = { go: [], small: [], lotto: [], no: [], thin: [] };
-    Object.keys(RISKY).forEach(function (k) { (B[k] || []).forEach(function (it) { if (F !== 'all' && (F === 'off') !== it.off) return; if (!riskable(it.o)) return; var R = riskOf(it.o); g[R.lvl].push((FD.shortKey ? FD.shortKey(it.o) : it.o.key) + (R.M ? ' (' + Math.round(R.win / 10) + '/10 в плюс)' : '')); }); });
+    Object.keys(RISKY).forEach(function (k) { (B[k] || []).forEach(function (it) { if (F !== 'all' && (F === 'off') !== it.off) return; if (!riskable(it.o)) return; var R = riskOf(it.o); g[R.lvl].push((FD.shortKey ? FD.shortKey(it.o) : it.o.key) + (R.M ? ' (' + Math.round(R.win / 10) + '/10 в плюс)' : '') + (k === 'onDub' && R.lvl !== 'go' ? ' — оригинал; дубли всё равно делай' : '')); }); });
     if (!g.go.length && !g.small.length && !g.lotto.length && !g.no.length && !g.thin.length) return '<p class="mut sm">Тут оценивать нечего.</p>';
     var ln = function (k, title) { return g[k].length ? '<p class="sm"><span class="pill ' + RISK_LBL[k][0] + '">' + title + '</span> ' + esc(g[k].join(', ')) + '</p>' : ''; };
     return '<div class="risk-sum"><h4>😨 Где рискнуть, а где нет</h4>' + ln('go', 'Рискуй') + ln('small', 'По-малому') + ln('lotto', 'Лотерея') + ln('no', 'Не стоит') + ln('thin', 'Мало данных')
@@ -311,18 +313,20 @@
       return '<li><b class="mono">' + esc(key) + '</b>' + (o.st ? ' <span class="mut">' + esc(o.st) + '</span>' : '') + ' · ' + money(ds.spend) + ', ' + pl(Math.round(ds.fd), 'деп', 'депа', 'депов') + (ds.spend && ds.fd ? ', ROI ' + pct((ds.rev / ds.spend - 1) * 100) : '') + (it.why ? ' — <span class="mut">' + esc(it.why) + '</span>' : '') + (o.nonUS ? ' <span class="pill warn">не США?</span>' : '') + lh + (QS.risk && RISKY[it.k] && riskable(it.o) ? riskHtml(it.o, it.k === 'scale' ? 'dub' : it.k) : '') + '</li>';
     };
     var A = [
-      ['kill', '⛔ ВЫКЛЮЧИТЬ', (FD.EXPLAIN.kill || {}).press, P.kill],
-      ['cut', '✂️ УРЕЗАТЬ ВДВОЕ', (FD.EXPLAIN.cut || {}).press, P.kill],
-      ['on', '🔛 ВКЛЮЧИТЬ ОБРАТНО', 'Зря вырубил — по лестнице решать ещё рано. Включи кампании этого креатива обратно, бюджет не меняй.', P.launch],
-      ['scale', '🚀 МАСШТАБИРОВАТЬ', 'Это жирный победитель (3+ депа и ROI +50% и выше). Оригинал не трогай, бюджет ему не поднимай. Залей 5 копий: в новые штаты из твоих офферов и в другие РК.', P.launch],
-      ['dub', '📑 ДУБЛИРОВАТЬ', (FD.EXPLAIN.dub || {}).press, P.launch],
-      ['reup', '♻️ ПЕРЕЗАЛИТЬ', 'Залей новую копию в другой РК или в новый штат. Старую не реанимируй.', P.launch],
-      ['keep', '👌 НЕ ТРОГАТЬ', P.keepT, null]
+      ['kill', '⛔ ВЫРУБАЙ, НЕ ДУБЛИРУЙ', (FD.EXPLAIN.kill || {}).press, P.kill],
+      ['cut', '✂️ УРЕЖЬ ВДВОЕ, НЕ ДУБЛИРУЙ', (FD.EXPLAIN.cut || {}).press, P.kill],
+      ['onDub', '🔛 ВКЛЮЧИ ОБРАТНО + ДУБЛИРУЙ', 'Рабочий креатив, зря выключен. Включи его кампании обратно (бюджет не меняй) и сразу сделай 3 копии в другие РК и соседние штаты. Включать лучше, чем перезаливать: у кампании уже есть обучение. Если за 2–3 часа американского дня не начнёт тратить — тогда перезалей копию.', P.launch],
+      ['on', '🔛 ВКЛЮЧИ ОБРАТНО, НЕ ДУБЛИРУЙ', 'Включи кампании этого креатива обратно, бюджет не меняй. Дубли — когда придёт ещё деп. Не начнёт тратить за 2–3 часа американского дня — перезалей копию в другой РК.', P.launch],
+      ['maybe', '🎲 МОЖНО ВКЛЮЧИТЬ — ПО ЖЕЛАНИЮ', 'Это лотерея или похожих случаев мало. Включай, только если есть свободный бюджет, и дай максимум до следующей ступеньки лестницы.', P.launch],
+      ['scale', '🚀 ДЕРЖИ + МАСШТАБИРУЙ', 'Это жирный победитель (3+ депа и ROI +50% и выше). Оригинал не трогай, бюджет ему не поднимай. Залей 5 копий: в новые штаты из твоих офферов и в другие РК.', P.launch],
+      ['dub', '📑 ДЕРЖИ + ДУБЛИРУЙ', (FD.EXPLAIN.dub || {}).press, P.launch],
+      ['reup', '♻️ ВЫРУБАЙ + ПЕРЕЗАЛЕЙ', 'Залей новую копию в другой РК или в новый штат. Старую не реанимируй.', P.launch],
+      ['keep', '👌 ПРОСТО ДЕРЖИ, НЕ ДУБЛИРУЙ', P.keepT, null]
     ];
     var todo = [], h = '<div class="q-now"><div class="q-now-hd"><h3>🎯 Что делать прямо сейчас</h3><label>У тебя сейчас <select id="qNowT">' + timeOpts(c.tm) + '</select></label></div>';
     h += '<p><b>В Нью-Йорке ' + u.ny + '</b> — там ' + NOW_PH[P.ph] + (u.nyPrev ? ' (и у них ещё вчерашний день)' : '') + '. Включать и заливать новое: ' + ok(P.launch) + '</p><p class="sm">' + esc(P.launch.t) + '</p>' + (wk ? '<p class="sm">' + esc(wk) + '</p>' : '');
     if (!P.hasSt) h += '<p class="mut sm">В выгрузке нет колонки «Показ кампании» (Campaign delivery) — не вижу, что включено, а что нет. Считаю, что всё включено. Кидай выгрузку FB с этой колонкой.</p>';
-    var F = P.hasSt ? (QS.nowF || 'on') : 'all', cnt = function (f) { var n = 0; Object.keys(B).forEach(function (k) { if (k !== 'doneKill' && k !== 'dead') B[k].forEach(function (x) { if (f === 'all' || (f === 'off') === x.off) n++; }); }); return n; };
+    var F = P.hasSt ? (QS.nowF || 'on') : 'all', cnt = function (f) { var n = 0; Object.keys(B).forEach(function (k) { if (k !== 'doneKill' && k !== 'dead' && k !== 'nofb' && k !== 'skip') B[k].forEach(function (x) { if (f === 'all' || (f === 'off') === x.off) n++; }); }); return n; };
     if (P.hasSt) h += '<div class="chips q-nowf" role="group">' + [['on', '🟢 Активные'], ['off', '⚫ Выключенные'], ['all', 'Все']].map(function (b) { return '<button type="button" data-nf="' + b[0] + '" aria-pressed="' + (F === b[0]) + '">' + b[1] + ' <span class="mut">' + cnt(b[0]) + '</span></button>'; }).join('') + '</div>';
     h += '<div class="chips"><button type="button" data-risk aria-pressed="' + !!QS.risk + '">😨 Боюсь включать — оцени риск</button></div>';
     if (QS.risk) h += riskSummary(B, F);
@@ -331,6 +335,8 @@
       if (a[0] !== 'keep') todo.push({ k: a[0], n: it.length, ok: a[3] ? a[3].ok : 2, t: a[1] });
       h += '<details class="q-act"><summary>' + a[1] + ' · ' + it.length + (a[3] ? ' ' + ok(a[3]) : '') + '</summary><p class="sm">' + esc(a[2] || '') + (a[3] && a[3].ok < 2 && a[0] !== 'kill' && a[0] !== 'cut' ? ' <b>' + esc(a[3].ok === 0 ? 'Но не сейчас — включай с ' + P.start + '.' : 'Сейчас — только дубли победителей.') + '</b>' : '') + '</p><ul>' + it.slice(0, 10).map(function (x) { x.k = a[0]; return row(x); }).join('') + (it.length > 10 ? '<li class="mut">…и ещё ' + (it.length - 10) + '</li>' : '') + '</ul></details>';
     });
+    if (B.nofb.length) h += '<p class="mut sm">❔ Есть в Power BI, но нет ни в одной загруженной выгрузке FB — статус не вижу, в активные/выключенные не считаю: ' + esc(B.nofb.slice(0, 6).map(function (x) { return FD.shortKey ? FD.shortKey(x.o) : x.o.key; }).join(', ')) + (B.nofb.length > 6 ? ' и ещё ' + (B.nofb.length - 6) : '') + '. ' + (B.nofb.length === 1 ? 'Лежит' : 'Лежат') + ' в другом РК — докинь его выгрузку.</p>';
+    if (B.skip.length && F !== 'on') h += '<p class="mut sm">🙅 Вырубил рано, но у таких шансы плохие (у пацанов в плюс выходили 1–2 из 10) — можно не включать, это не ссыкло: ' + esc(B.skip.map(function (x) { return FD.shortKey ? FD.shortKey(x.o) : x.o.key; }).join(', ')) + '.</p>';
     if (B.dead.length && F !== 'on') h += '<p class="mut sm">🪦 Старые выключенные, на которые FB почти не тратил (меньше $30 без депов): ' + B.dead.length + ' — забей, включать их нет смысла. Нравится креатив — залей свежую копию.</p>';
     if (B.doneKill.length && F !== 'on') h += '<p class="mut sm">💪 Уже правильно выключено: ' + B.doneKill.length + '.</p>';
     if (!todo.length) h += '<p><b>' + (F === 'on' ? 'По активным делать нечего.' : F === 'off' ? 'По выключенным делать нечего.' : 'Делать нечего.') + '</b> Ничего не горит, никого не надо включать. ' + esc(P.keepT) + '</p>';
@@ -340,7 +346,7 @@
   function nowSay(N) {
     var P = N.P, t = (N.F === 'on' ? 'По активным кампаниям. ' : N.F === 'off' ? 'По выключенным. ' : '') + 'Что делать сейчас. В Нью-Йорке ' + N.u.ny + ', там ' + NOW_PH[P.ph] + '. ';
     var now = N.todo.filter(function (x) { return x.ok > 0; }), later = N.todo.filter(function (x) { return x.ok === 0; });
-    var nm = { kill: ['выключи', 'креатив', 'креатива', 'креативов'], cut: ['урежь', 'креатив', 'креатива', 'креативов'], on: ['включи обратно', 'креатив', 'креатива', 'креативов'], scale: ['масштабируй', 'победителя', 'победителей', 'победителей'], dub: ['дублируй', 'креатив', 'креатива', 'креативов'], reup: ['перезалей', 'креатив', 'креатива', 'креативов'] };
+    var nm = { onDub: ['включи обратно и дублируй', 'креатив', 'креатива', 'креативов'], maybe: ['по желанию включи', 'креатив', 'креатива', 'креативов'], kill: ['выключи', 'креатив', 'креатива', 'креативов'], cut: ['урежь', 'креатив', 'креатива', 'креативов'], on: ['включи обратно', 'креатив', 'креатива', 'креативов'], scale: ['масштабируй', 'победителя', 'победителей', 'победителей'], dub: ['дублируй', 'креатив', 'креатива', 'креативов'], reup: ['перезалей', 'креатив', 'креатива', 'креативов'] };
     if (now.length) t += 'Сейчас: ' + now.map(function (x) { var w = nm[x.k]; return w[0] + ' ' + pl(x.n, w[1], w[2], w[3]); }).join(', ') + '. ';
     if (later.length) t += 'Включать и заливать сейчас глупо — ' + later.map(function (x) { var w = nm[x.k]; return w[0] + ' ' + pl(x.n, w[1], w[2], w[3]); }).join(', ') + ' — с ' + P.start + '. ';
     if (!N.todo.length) t += 'Делать нечего, ничего не горит. ';
@@ -388,7 +394,7 @@
         + (Q.accts.length > 1 ? '<tr class="hl"><td><b>Итого</b></td><td class="n">' + Q.accts.reduce(function (x, a) { return x + a.nCamps; }, 0) + '</td><td class="n">' + (QS.fb.hasStatus ? Q.accts.reduce(function (x, a) { return x + a.nOn; }, 0) : '—') + '</td><td class="n">' + money(Q.accts.reduce(function (x, a) { return x + a.spend; }, 0)) + '</td><td class="n">' + Math.round(Q.accts.reduce(function (x, a) { return x + a.clk; }, 0)) + '</td><td class="n">' + Math.round(Q.accts.reduce(function (x, a) { return x + a.regs; }, 0)) + '</td><td class="n">' + Math.round(Q.accts.reduce(function (x, a) { return x + a.fd; }, 0)) + '</td>' + (hasPbA ? '<td class="n">' + Math.round(Q.accts.reduce(function (x, a) { return x + a.pbFd; }, 0)) + '</td><td></td>' : '') + '</tr>' : '')
         + '</tbody></table></div>' + (hasPbA && Q.unmatchedPb.n ? '<p class="mut sm">Ещё ' + pl(Q.unmatchedPb.n, 'кампания', 'кампании', 'кампаний') + ' из Power BI ($' + Math.round(Q.unmatchedPb.spend) + ', ' + pl(Q.unmatchedPb.fd, 'деп', 'депа', 'депов') + ') не нашлись ни в одном загруженном РК — докинь выгрузки остальных кабинетов.</p>' : '') + '<p class="mut sm">Название РК — из колонки «Название аккаунта», если ты её добавил в Ads Manager, иначе из имени файла. Депы трекера по РК считаются по совпадению названий кампаний.</p></details>';
     }
-    var G = [['dub', 'ДУБЛИРОВАТЬ'], ['hold', 'ДЕРЖАТЬ'], ['keep', 'РАНО РЕШАТЬ — НЕ ТРОГАЙ'], ['cut', 'УРЕЗАТЬ ВДВОЕ'], ['kill', 'ВЫКЛЮЧИТЬ'], ['wait', 'НЕ ОТКРУТИЛИСЬ — ПЕРЕЗАЛИТЬ'], ['idle', 'УЖЕ НЕ ТРАТЯТ']];
+    var G = [['dub', 'ДЕРЖИ + ДУБЛИРУЙ'], ['hold', 'ДЕРЖИ, НЕ ДУБЛИРУЙ'], ['keep', 'РАНО — ДЕРЖИ, НЕ ДУБЛИРУЙ'], ['cut', 'УРЕЖЬ ВДВОЕ, НЕ ДУБЛИРУЙ'], ['kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ'], ['wait', 'ВЫРУБАЙ + ПЕРЕЗАЛЕЙ'], ['idle', 'УЖЕ НЕ ТРАТЯТ']];
     G.forEach(function (g) {
       var it = Q.groups[g[0]]; if (!it || !it.length) return;
       var e = FD.EXPLAIN[g[0]] || { press: 'Выгорели или выключены. Проверь, что в Ads Manager они выключены, и не трать на них время.' };
@@ -646,7 +652,10 @@
     var nn = function (id) { var v = +$(id).value; return isFinite(v) && v > 0 ? v : 0; };
     var S = nn('#cS'), K = Math.round(nn('#cK')), Rr = Math.round(nn('#cR')), D = Math.round(nn('#cD')), A = Math.max(1, Math.round(nn('#cA')) || 1);
     var v = FD.decide(S, K, Rr, D, A), e = FD.EXPLAIN[v.code] || {}; v.S = S; v.K = K;
-    var h = '<span class="pill big ' + v.cls + '">' + v.label + '</span><p>' + esc(FD.clean(v.why)) + '</p>' +
+    var cb = FD.COMBO[v.code] || FD.COMBO.keep;
+    var h = '<span class="pill big ' + v.cls + '">' + v.label + '</span>'
+      + '<div class="combo"><div class="combo-r"><span>Кампания</span><b class="' + cb.camp[0] + '">' + cb.camp[1] + '</b><em>' + esc(cb.camp[2]) + '</em></div><div class="combo-r"><span>Дубли</span><b class="' + cb.dub[0] + '">' + cb.dub[1] + '</b><em>' + esc(cb.dub[2]) + '</em></div></div>'
+      + '<p>' + esc(FD.clean(v.why)) + '</p>' +
       '<p class="mono mut">клик ' + (v.cpc ? '$' + v.cpc.toFixed(2) : '—') + ' · рега ' + (v.reg ? '$' + v.reg.toFixed(1) : '—') + ' · ' + (v.dep ? 'деп $' + Math.round(v.dep) : 'прогноз депа ' + (v.est ? '~$' + Math.round(v.est) : '—')) + ' · выплата ~$158</p>' +
       '<div class="explain"><div><b>Что это значит</b><p>' + esc(e.what || '') + '</p></div><div><b>Что нажать</b><p>' + esc(e.press || '') + '</p></div></div><details class="ladder-help"><summary>Что за «лестница»?</summary><p>' + LADDER_TXT + '</p></details>';
     var M = FD.similar(S, K, Rr, D, A); v.sim = M;

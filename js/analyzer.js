@@ -13,7 +13,12 @@ FD.num = function (v) {
 
 FD.readFile = function (file) {
   return file.arrayBuffer().then(function (buf) {
-    var wb = XLSX.read(buf, { type: 'array' });
+    var u8 = new Uint8Array(buf), isZip = u8[0] === 0x50 && u8[1] === 0x4b, isOle = u8[0] === 0xd0 && u8[1] === 0xcf, wb;
+    if (!isZip && !isOle && /\.(csv|txt|tsv)$/i.test(file.name || '')) {
+      /* CSV из FB — UTF-8; без этого русские названия («СБО», «Копия») превращаются в кракозябры */
+      var txt; try { txt = new TextDecoder('utf-8', { fatal: true }).decode(u8); } catch (e) { try { txt = new TextDecoder('windows-1251').decode(u8); } catch (e2) { txt = new TextDecoder('utf-8').decode(u8); } }
+      wb = XLSX.read(txt.replace(/^\uFEFF/, ''), { type: 'string' });
+    } else wb = XLSX.read(buf, { type: 'array' });
     var ws = wb.Sheets[wb.SheetNames[0]];
     return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
   });
@@ -77,23 +82,24 @@ FD.decide = function (S, K, R, D, age) {
   var est = dep != null ? dep : reg != null ? reg * 5 : cpc != null ? cpc * 19 : null;
   function v(code, label, cls, why) { return { code: code, label: label, cls: cls, why: why, cpc: cpc, reg: reg, dep: dep, est: est }; }
   if (D > 0) {
-    if (dep <= 110) return v('dub', 'ДУБЛЬ', 'acc', 'Деп по $' + Math.round(dep) + '. Оригинал не трогай, 3 новые копии по $200–300 в соседние штаты.');
-    if (dep <= 150) return v('hold', 'ДЕРЖИ', 'good', 'Деп по $' + Math.round(dep) + ', в плюсе. Бюджет не трогай.');
-    if (dep > 300 && S >= 300) return v('kill', 'ВЫКЛ', 'kill', 'Деп по $' + Math.round(dep) + ' при выплате ~$158. Каждый деп стоит тебе больше двух выплат, ты в глубоком минусе. Выключай.');
-    if (age >= 3 || S >= 300) return v('cut', 'РЕЖЬ ×0,5', 'warn', 'Деп по $' + Math.round(dep) + ' дороже $150, и креатив уже не новый. Режь вдвое, замена должна быть залита.');
-    return v('hold', 'ДЕРЖИ', 'good', 'Деп дороже $150, но спенда мало. Смотри снова после $300.');
+    if (dep <= 110 && (D >= 2 || (cpc != null && cpc <= 7))) return v('dub', 'ДЕРЖИ + ДУБЛИРУЙ', 'acc', 'Деп по $' + Math.round(dep) + (D >= 2 ? ', уже ' + D + ' депа' : ', клик нормальный ($' + cpc.toFixed(2) + ')') + '. Кампанию держи как есть, плюс 3 новые копии в соседние штаты.');
+    if (dep <= 110) return v('hold', 'ДЕРЖИ, НЕ ДУБЛИРУЙ', 'good', 'Деп по $' + Math.round(dep) + ' — дёшево, но он один, а ' + (cpc == null ? 'по кликам данных нет' : 'клик $' + cpc.toFixed(2) + ' (норма до $5–7)') + '. Похоже на случайный деп. Кампанию держи, дубли пока не делай: придёт второй деп до $220 спенда — тогда дублируй.');
+    if (dep <= 150) return v('hold', 'ДЕРЖИ, НЕ ДУБЛИРУЙ', 'good', 'Деп по $' + Math.round(dep) + ', в плюсе. Бюджет не трогай.');
+    if (dep > 300 && S >= 300) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', 'Деп по $' + Math.round(dep) + ' при выплате ~$158. Каждый деп стоит тебе больше двух выплат, ты в глубоком минусе. Выключай.');
+    if (age >= 3 || S >= 300) return v('cut', 'УРЕЖЬ ×0,5, НЕ ДУБЛИРУЙ', 'warn', 'Деп по $' + Math.round(dep) + ' дороже $150, и креатив уже не новый. Режь вдвое, замена должна быть залита.');
+    return v('hold', 'ДЕРЖИ, НЕ ДУБЛИРУЙ', 'good', 'Деп дороже $150, но спенда мало. Смотри снова после $300.');
   }
-  if (S < 5) return v('wait', 'ЖДИ / ПЕРЕЗАЛЕЙ', 'muted', 'Почти не крутилась. Если прошло 3+ часа американского дня — новые копии в другой аккаунт.');
-  if (S < 30) { if (S >= 25 && K === 0) return v('kill', 'ВЫКЛ', 'kill', '$' + Math.round(S) + ' и ноль кликов. Креатив мёртвый.'); return v('keep', 'НЕ ТРОГАЙ', 'good', 'До $30 это шум. Руки убрал.'); }
-  if (S >= 160) return v('kill', 'ВЫКЛ', 'kill', '$' + Math.round(S) + ' без депа — выплата сожжена.');
+  if (S < 5) return v('wait', 'ЖДИ → ВЫРУБАЙ + ПЕРЕЗАЛЕЙ', 'muted', 'Почти не крутилась. Если прошло 3+ часа американского дня — новые копии в другой аккаунт.');
+  if (S < 30) { if (S >= 25 && K === 0) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', '$' + Math.round(S) + ' и ноль кликов. Креатив мёртвый.'); return v('keep', 'ДЕРЖИ, НЕ ДУБЛИРУЙ', 'good', 'До $30 это шум. Руки убрал.'); }
+  if (S >= 160) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', '$' + Math.round(S) + ' без депа — выплата сожжена.');
   if (S < 80) {
-    if (cpc == null || cpc > 8) return v('kill', 'ВЫКЛ', 'kill', 'Клик ' + (cpc == null ? 'не было' : '$' + cpc.toFixed(2)) + ' — деп выйдет $150+.');
-    if (R === 0 && S >= 60) return v('kill', 'ВЫКЛ', 'kill', '$' + Math.round(S) + ' и ни одной реги.');
-    return v('keep', 'ДЕРЖИ', 'good', 'Клик $' + cpc.toFixed(2) + ', прогноз депа ~$' + Math.round(est) + '. Смотри снова на $80.');
+    if (cpc == null || cpc > 8) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', 'Клик ' + (cpc == null ? 'не было' : '$' + cpc.toFixed(2)) + ' — деп выйдет $150+.');
+    if (R === 0 && S >= 60) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', '$' + Math.round(S) + ' и ни одной реги.');
+    return v('keep', 'ДЕРЖИ, НЕ ДУБЛИРУЙ', 'good', 'Клик $' + cpc.toFixed(2) + ', прогноз депа ~$' + Math.round(est) + '. Смотри снова на $80.');
   }
-  if (reg == null || reg >= 32) return v('kill', 'ВЫКЛ', 'kill', 'Рега ' + (reg == null ? 'нет' : '$' + reg.toFixed(1)) + ' — деп будет дороже выплаты.');
-  if (R >= 3 && reg <= 25) return v('keep', 'ДЕРЖИ ДО $160', 'warn', 'Рега $' + reg.toFixed(1) + ', прогноз депа ~$' + Math.round(reg * 5) + '. Деп может доехать.');
-  return v('keep', 'ДЕРЖИ ДО $120', 'warn', 'Рег мало или дороговаты. Нет депа к $120 — выкл.');
+  if (reg == null || reg >= 32) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', 'Рега ' + (reg == null ? 'нет' : '$' + reg.toFixed(1)) + ' — деп будет дороже выплаты.');
+  if (R >= 3 && reg <= 25) return v('keep', 'ДЕРЖИ ДО $160, НЕ ДУБЛИРУЙ', 'warn', 'Рега $' + reg.toFixed(1) + ', прогноз депа ~$' + Math.round(reg * 5) + '. Деп может доехать.');
+  return v('keep', 'ДЕРЖИ ДО $120, НЕ ДУБЛИРУЙ', 'warn', 'Рег мало или дороговаты. Нет депа к $120 — выкл.');
 };
 
 function q(arr, p) { if (!arr.length) return 0; var a = arr.slice().sort(function (x, y) { return x - y; }); var i = (a.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i); return a[lo] + (a[hi] - a[lo]) * (i - lo); }
@@ -265,6 +271,15 @@ FD.roast = function (R) {
 };
 
 /* Что значит вердикт — по-простому и что нажать */
+/* что делать с кампанией и с дублями — всегда две вещи */
+FD.COMBO = {
+  dub: { camp: ['good', '✅ Держи', 'не трогай бюджет, не редактируй'], dub: ['acc', '📑 Дублируй', '3 копии в другие РК и соседние штаты'] },
+  hold: { camp: ['good', '✅ Держи', 'бюджет не трогай'], dub: ['muted', '✖ Не дублируй', 'рано — нужен ещё деп'] },
+  keep: { camp: ['good', '✅ Держи', 'ничего не нажимай до следующей ступеньки'], dub: ['muted', '✖ Не дублируй', 'данных мало'] },
+  cut: { camp: ['warn', '✂️ Урежь бюджет вдвое', 'завтра деп дороже $150 — вырубай'], dub: ['muted', '✖ Не дублируй', 'креатив выгорает'] },
+  kill: { camp: ['kill', '⛔ Вырубай', 'все копии этого креатива'], dub: ['muted', '✖ Не дублируй', 'деньги — на новые креативы'] },
+  wait: { camp: ['muted', '⛔ Вырубай', 'если прошло 3+ часа американского дня, а он не крутит'], dub: ['acc', '♻️ Перезалей', 'копию в другой РК'] }
+};
 FD.EXPLAIN = {
   dub: { what: 'Это победитель. Деп дешевле $110, а платят ~$158 — каждый деп даёт тебе ~$50+ сверху.', press: 'Оригинал НЕ трогай (не меняй бюджет, не редактируй). Сделай 3 новые копии этого креатива по $200–300 в другие аккаунты и залей историю в 3–5 соседних штатов.' },
   hold: { what: 'Креатив в плюсе или около того. Всё работает, не мешай ему.', press: 'Ничего не нажимай. Проверь через час.' },
