@@ -49,9 +49,9 @@
     var el = $('#pathList');
     el.innerHTML = FD.MODULES.map(function (m, i) {
       var done = FD.state.done[m.id], open = i === 0 || FD.state.done[FD.MODULES[i - 1].id] || done;
-      return '<button class="node ' + (done ? 'done' : open ? 'open' : 'locked') + '" data-mod="' + i + '" style="--i:' + i + '">' +
+      return '<button class="node ' + (done ? 'done' : open ? 'open' : 'free') + '" data-mod="' + i + '" style="--i:' + i + '">' +
         '<span class="node-n">' + (done ? '✓' : i + 1) + '</span><span class="node-t"><em>' + esc(m.tag) + '</em>' + esc(m.title) + '</span>' +
-        (done ? '<span class="node-s">' + done + '/' + m.quiz.length + '</span>' : open ? '<span class="node-s go">Начать</span>' : '<span class="node-s">закрыто</span>') + '</button>';
+        (done ? '<span class="node-s">' + done + '/' + m.quiz.length + '</span>' : open ? '<span class="node-s go">Начать</span>' : '<span class="node-s">открыть</span>') + '</button>';
     }).join('');
     var n = Object.keys(FD.state.done).length;
     $('#pathProg').style.width = (n / FD.MODULES.length * 100) + '%';
@@ -818,7 +818,7 @@
     $('#voiceSel').onchange = function () { FD.state.voiceName = this.value; save(); FD.pickVoice(); FD.say(FD.g('Вот так я звучу. Нравится? Если нет, выбери другой голос.', 'Вот так я звучу, котик. Не нравится? Выбери другой.'), { fast: true }); };
     $('#voiceHint').onclick = function () { setChar('zina', true); };
     $$('.tab').forEach(function (b) { b.onclick = function () { show(b.dataset.tab); }; });
-    $('#pathList').addEventListener('click', function (e) { var n = e.target.closest('.node'); if (!n || n.classList.contains('locked')) { if (n) FD.say('Куда лезешь? Сначала пройди предыдущий урок. По порядку, братан.', { mood: 'angry' }); return; } openLesson(+n.dataset.mod); });
+    $('#pathList').addEventListener('click', function (e) { var n = e.target.closest('.node'); if (!n) return; openLesson(+n.dataset.mod); });
     $('#lessonNext').onclick = nextStep;
     $('#lessonPrev').onclick = function () { if (L.phase === 'slides' && L.s > 0) { L.s--; renderSlide(); } };
     $('#lessonClose').onclick = closeLesson;
