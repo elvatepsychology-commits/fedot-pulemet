@@ -108,6 +108,7 @@ FD.MY_DEFAULT = [
 FD.CAS_NAME = { AMERISTAR: 'Ameristar', OAKHS: 'Oaklawn Hot Springs', MOUC: 'Mountaineer', CDC: "Coeur d'Alene", HOLLYWOOD: 'Hollywood (Огайо)', HOLL: 'Hollywood Charles Town', CASAR: 'Casino Arizona',
   LAUBERGE: "L'Auberge", TLADC: 'Lodge at Deadwood', HORSESHOE: 'Horseshoe', FRLICK: 'French Lick', TMGH: 'The Mint Gaming Hall', OAKGROVE: 'Oak Grove', KLECH: 'Kickapoo Lucky Eagle',
   HCC: "Harrah's Cherokee", MYSLAKE: 'Mystic Lake', SRE: 'Soaring Eagle', MGD: 'MGM Grand Detroit', SCCC: 'Seminole Coconut Creek', SHRH: 'Seminole Hard Rock', HARRAH: "Harrah's", FWCSB: 'Four Winds South Bend' };
+Object.assign(FD.CAS_NAME, { HCCR: "Harrah's Cherokee Casino Resort", KSC: 'Kansas Star Casino', EPC: 'Emerald Princess Casino', CNO: 'Caesars New Orleans', AMERISTAR: 'Ameristar Casino Resort Spa St. Charles', MOUC: 'Mountaineer Casino', LAUBERGE: "L'Auberge (Lake Charles / Baton Rouge)", OAKHS: 'Oaklawn Hot Springs', CASAR: 'Casino Arizona', HOLLYWOOD: 'Hollywood Casino (Огайо)' });
 FD.casName = function (code) { return FD.CAS_NAME[code] || code; };
 FD.CAS_ALIAS = [
   [/cherokee/i, 'HCC'], [/seminole hard rock/i, 'SHRH'], [/coconut creek/i, 'SCCC'], [/seminole/i, 'SMNLE'], [/mystic lake/i, 'MYSLAKE'], [/mint gaming/i, 'TMGH'], [/mgm grand detroit/i, 'MGD'], [/four winds/i, 'FWCSB'], [/coeur/i, 'CDC'], [/deadwood/i, 'TLADC'],

@@ -199,6 +199,9 @@ FD.quick = function (pb, fb, period, mode) {
     if (x.camp) { var cn = FD.matchCamp(x.camp); o.cm = o.cm || {}; o.cm[cn] = o.cm[cn] || {}; o.cm[cn].fb = o.cm[cn].fb || z(); add(o.cm[cn].fb, x); }
     if (x.camp) { o.camps[FD.matchCamp(x.camp)] = 1; o.info = o.info || FD.campInfo(x.camp); }
   });
+  /* данные за один день (например, FB выгружен «за сегодня») — нельзя судить, что креатив «уже не тратит» */
+  var dset = {}; if (pb) pb.recs.forEach(function (x) { if (x.dn != null) dset[x.dn] = 1; }); if (fb && fb.byDay) fb.recs.forEach(function (x) { if (x.dn != null) dset[x.dn] = 1; });
+  var multiDay = Object.keys(dset).length > 1 || (fb && !fb.byDay && fb.start != null && fb.end > fb.start);
   var LIFE = {};
   if (pb) pb.recs.forEach(function (x) {
     if (x.dn != null && ((to != null && x.dn > to) || (lastDay != null && x.dn > lastDay))) return;
@@ -223,7 +226,7 @@ FD.quick = function (pb, fb, period, mode) {
     var dsRev = o.life ? o.life.rev : (o.pb ? o.pb.rev : (o.fb.rev || o.fb.fd * FD.PAYOUT));
     if ((o.v.code === 'cut' || o.v.code === 'kill') && ds.fd > 0 && dsRev >= ds.spend) o.v = { code: 'hold', label: 'ДЕРЖИ, НЕ ДУБЛИРУЙ', cls: 'good', why: 'Деп по $' + Math.round(ds.spend / ds.fd) + ' дороговат, но выплаты выше — по трекеру ты в плюсе (ROI ' + Math.round((dsRev / ds.spend - 1) * 100) + '%). Не режь. Дубли — когда деп станет дешевле $110.' };
     if (o.life) o.v.why = 'За всю жизнь креатива: $' + Math.round(ds.spend) + ', ' + FD.pl(Math.round(ds.fd), 'деп', 'депа', 'депов') + '. ' + o.v.why;
-    if (o.v.code === 'wait' && o.age > 1) o.v = { code: 'idle', label: 'НЕ ТРАТИТ', cls: 'muted', why: 'Креатив уже не новый (день ' + o.age + '), а в этом периоде FB на него почти не тратит. Выгорел или выключен. Если депов за жизнь нет — выключи и не жди.' };
+    if (o.v.code === 'wait' && o.age > 1 && multiDay) o.v = { code: 'idle', label: 'НЕ ТРАТИТ', cls: 'muted', why: 'Креатив уже не новый (день ' + o.age + '), а в этом периоде FB на него почти не тратит. Выгорел или выключен. Если депов за жизнь нет — выключи и не жди.' };
     if (o.spend < 5 && o.fd > 0) o.v = { code: 'hold', label: 'ДЕПЫ ДОЕХАЛИ', cls: 'good', why: 'В этом периоде креатив почти не тратил, но доехали депы от прошлых дней (' + o.fd + '). Смотри его за весь срок — выбери «Всё».' };
     o.roi = o.spend ? (o.rev / o.spend - 1) * 100 : null;
     o.copies = Object.keys(o.camps).length;
@@ -317,7 +320,7 @@ FD.quick = function (pb, fb, period, mode) {
     if (!fb.hasFd) warn.push('В выгрузке FB нет колонки «Покупки» (Purchases) — депы FB сравнить не с чем. Добавь колонку в Ads Manager.');
   }
   var groups = {}; list.forEach(function (o) { (groups[o.v.code] = groups[o.v.code] || []).push(o); });
-  return { pbScope: pbScope, read: read, outP: outP, unmatchedPb: unmatchedPb, accts: acctList, cowards: cowards, rightKills: rightKills, rk: rk, goodHolds: goodHolds, burning: burning, hasStatus: !!(fb && fb.hasStatus), mode: mode || 'cr', list: list, T: T, orphan: orphan, lockFb: lockFb, to: to, groups: groups, warn: warn, lastDay: lastDay, from: from, period: period, hasPb: !!pb, hasFb: !!fb, fbRange: fb && fb.start != null ? FD.dayStr(fb.start) + '–' + FD.dayStr(fb.end) : null };
+  return { multiDay: multiDay, pbScope: pbScope, read: read, outP: outP, unmatchedPb: unmatchedPb, accts: acctList, cowards: cowards, rightKills: rightKills, rk: rk, goodHolds: goodHolds, burning: burning, hasStatus: !!(fb && fb.hasStatus), mode: mode || 'cr', list: list, T: T, orphan: orphan, lockFb: lockFb, to: to, groups: groups, warn: warn, lastDay: lastDay, from: from, period: period, hasPb: !!pb, hasFb: !!fb, fbRange: fb && fb.start != null ? FD.dayStr(fb.start) + '–' + FD.dayStr(fb.end) : null };
 };
 
 FD.pl = function (n, a, b, c) { var m = Math.abs(n) % 100, k = m % 10; return n + ' ' + (m > 10 && m < 20 ? c : k === 1 ? a : k >= 2 && k <= 4 ? b : c); };
@@ -419,13 +422,13 @@ FD.cowardText = function (o, i) {
 
 /* «Что делать прямо сейчас»: общий список действий + можно ли это делать в это время (nyH — час в Нью-Йорке, off — разница Минск−NY) */
 FD.nowPlan = function (Q, nyH, off) {
-  var B = { onDub: [], maybe: [], skip: [], on: [], dub: [], scale: [], reup: [], cut: [], kill: [], keep: [], doneKill: [], dead: [], nofb: [] };
+  var B = { waitNew: [], stuck: [], onDub: [], maybe: [], skip: [], on: [], dub: [], scale: [], reup: [], cut: [], kill: [], keep: [], doneKill: [], dead: [], nofb: [] };
   var hasSt = Q.hasStatus;
   Q.list.forEach(function (o) {
     var ds = o.life || o, known = !!(hasSt && o.fb && o.fbOff != null), isOff = !!(known && o.fbOff), isOn = !known || !o.fbOff;
     if (hasSt && !o.fb) { if (o.v.code !== 'idle') B.nofb.push({ o: o, off: null }); return; }
     var push = function (k, it) { it.off = isOff; B[k].push(it); };
-    if (o.v.code === 'idle') { if (known && !isOff && !ds.fd) push('reup', { o: o, why: 'включён, а FB почти не тратит (день ' + o.age + ') — эту выключи, залей копию в другой РК' }); else if (isOff) push('dead', { o: o }); return; }
+    if (o.v.code === 'idle') { if (known && !isOff && !ds.fd) push('stuck', { o: o, why: 'включён, а FB почти не тратит (' + (o.age > 1 ? 'день ' + o.age : 'сегодня') + ')' }); else if (isOff) push('dead', { o: o }); return; }
     var cw = !o.nonUS && ['keep', 'hold', 'dub'].indexOf(o.v.code) > -1 && ds.spend >= 5;
     var win = o.v.code === 'dub' || (o.v.code === 'hold' && ds.fd > 0);
     if (isOff) {
@@ -442,7 +445,7 @@ FD.nowPlan = function (Q, nyH, off) {
       return;
     }
     if (o.v.code === 'dub') { push(ds.fd >= 3 && (ds.rev / ds.spend - 1) * 100 >= 50 ? 'scale' : 'dub', { o: o }); return; }
-    if (o.v.code === 'wait') { push('reup', { o: o, why: 'FB не берёт в показ — копия в другой РК' }); return; }
+    if (o.v.code === 'wait') { if (!Q.multiDay || o.age <= 1 || (nyH >= 6 && nyH < 10)) push('waitNew', { o: o, why: 'только начал — FB раскачивается' }); else push('stuck', { o: o, why: 'FB почти не тратит' }); return; }
     if ((o.v.code === 'cut' || o.v.code === 'kill') && ds.fd > 0) {
       if (ds.rev >= ds.spend) { push('keep', { o: o, why: 'по трекеру в плюсе (ROI ' + Math.round((ds.rev / ds.spend - 1) * 100) + '%) — не режь, даже если деп дороговат' }); return; }
       if (nyH >= 15 || nyH < 11) { push('keep', { o: o, why: 'в минусе, но депы были — сейчас не режь: депы доезжают в трекер с опозданием. Реши днём по США — с ' + ('0' + Math.round(((11 + off) % 24 + 24) % 24)).slice(-2) + ':00 по-твоему, по сумме за всю жизнь' }); return; }
