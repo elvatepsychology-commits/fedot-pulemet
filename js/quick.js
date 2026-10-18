@@ -223,6 +223,7 @@ FD.quick = function (pb, fb, period, mode) {
     o.life = L && (L.spend > o.spend + 0.5 || L.fd > o.fd) ? L : null;
     var ds = o.life || o;
     o.v = FD.decide(ds.spend, ds.clk, ds.regs, ds.fd, o.age);
+    if (!multiDay && !pb && o.v.code !== 'wait') o.v.why = 'За сегодня: ' + o.v.why + ((o.v.code === 'kill' || o.v.code === 'cut') && o.age >= 2 ? ' Если в прошлые дни креатив давал депы — это выгорела эта копия (кампании живут ~2 дня): её выключай, а креатив заливай свежими копиями в новые штаты или РК.' : '');
     var dsRev = o.life ? o.life.rev : (o.pb ? o.pb.rev : (o.fb.rev || o.fb.fd * FD.PAYOUT));
     if ((o.v.code === 'cut' || o.v.code === 'kill') && ds.fd > 0 && dsRev >= ds.spend) o.v = { code: 'hold', label: 'ДЕРЖИ, НЕ ДУБЛИРУЙ', cls: 'good', why: 'Деп по $' + Math.round(ds.spend / ds.fd) + ' дороговат, но выплаты выше — по трекеру ты в плюсе (ROI ' + Math.round((dsRev / ds.spend - 1) * 100) + '%). Не режь. Дубли — когда деп станет дешевле $110.' };
     if (o.life) o.v.why = 'За всю жизнь креатива: $' + Math.round(ds.spend) + ', ' + FD.pl(Math.round(ds.fd), 'деп', 'депа', 'депов') + '. ' + o.v.why;
@@ -301,7 +302,7 @@ FD.quick = function (pb, fb, period, mode) {
     }
   }
   var acctList = Object.keys(accts).map(function (k) { var a = accts[k]; a.nCamps = a.rows; a.nOn = a.rowsOn; a.no = fb.acctNo ? fb.acctNo[k] : null; return a; }).sort(function (a, b) { return b.spend - a.spend; });
-  var ORDER = { dub: 1, cut: 4, kill: 5, hold: 2, keep: 3, wait: 6, idle: 7 };
+  var ORDER = { dub: 1, check: 4, cut: 4, kill: 5, hold: 2, keep: 3, wait: 6, idle: 7 };
   list.sort(function (a, b) { return (ORDER[a.v.code] || 9) - (ORDER[b.v.code] || 9) || b.spend - a.spend; });
   var T = { spend: 0, fd: 0, rev: 0, pbFd: 0, fbFd: 0, pbSpend: 0, fbSpend: 0, both: 0, lost: 0, extra: 0 };
   list.forEach(function (o) {
@@ -319,8 +320,9 @@ FD.quick = function (pb, fb, period, mode) {
       warn.push('Периоды разные: FB ' + FD.dayStr(fb.start) + '–' + FD.dayStr(fb.end) + ', в Power BI есть ' + FD.dayStr(pbFrom) + '–' + FD.dayStr(pbTo) + '. Сравниваю только общие дни, но у FB внутри больше дней — его депов может быть больше. Для точной сверки выгрузи оба за одни и те же даты.');
     if (!fb.hasFd) warn.push('В выгрузке FB нет колонки «Покупки» (Purchases) — депы FB сравнить не с чем. Добавь колонку в Ads Manager.');
   }
+  if (!multiDay && !pb && fb) warn.unshift('Файл за один день — решаю по цифрам этого дня (свежая аудитория, свежие метрики). Чтобы видеть и сегодня, и всю жизнь креатива — выгружай FB за «Maximum» с разбивкой по дням и жми «За последний день». По одному дню удобнее режим «По кампаниям»: каждая копия — своя аудитория, режешь выгоревшую копию, а не весь креатив.');
   var groups = {}; list.forEach(function (o) { (groups[o.v.code] = groups[o.v.code] || []).push(o); });
-  return { multiDay: multiDay, pbScope: pbScope, read: read, outP: outP, unmatchedPb: unmatchedPb, accts: acctList, cowards: cowards, rightKills: rightKills, rk: rk, goodHolds: goodHolds, burning: burning, hasStatus: !!(fb && fb.hasStatus), mode: mode || 'cr', list: list, T: T, orphan: orphan, lockFb: lockFb, to: to, groups: groups, warn: warn, lastDay: lastDay, from: from, period: period, hasPb: !!pb, hasFb: !!fb, fbRange: fb && fb.start != null ? FD.dayStr(fb.start) + '–' + FD.dayStr(fb.end) : null };
+  return { oneDay: !multiDay && !pb && !!fb, multiDay: multiDay, pbScope: pbScope, read: read, outP: outP, unmatchedPb: unmatchedPb, accts: acctList, cowards: cowards, rightKills: rightKills, rk: rk, goodHolds: goodHolds, burning: burning, hasStatus: !!(fb && fb.hasStatus), mode: mode || 'cr', list: list, T: T, orphan: orphan, lockFb: lockFb, to: to, groups: groups, warn: warn, lastDay: lastDay, from: from, period: period, hasPb: !!pb, hasFb: !!fb, fbRange: fb && fb.start != null ? FD.dayStr(fb.start) + '–' + FD.dayStr(fb.end) : null };
 };
 
 FD.pl = function (n, a, b, c) { var m = Math.abs(n) % 100, k = m % 10; return n + ' ' + (m > 10 && m < 20 ? c : k === 1 ? a : k >= 2 && k <= 4 ? b : c); };
@@ -422,7 +424,7 @@ FD.cowardText = function (o, i) {
 
 /* «Что делать прямо сейчас»: общий список действий + можно ли это делать в это время (nyH — час в Нью-Йорке, off — разница Минск−NY) */
 FD.nowPlan = function (Q, nyH, off) {
-  var B = { waitNew: [], stuck: [], onDub: [], maybe: [], skip: [], on: [], dub: [], scale: [], reup: [], cut: [], kill: [], keep: [], doneKill: [], dead: [], nofb: [] };
+  var B = { todayBad: [], waitNew: [], stuck: [], onDub: [], maybe: [], skip: [], on: [], dub: [], scale: [], reup: [], cut: [], kill: [], keep: [], doneKill: [], dead: [], nofb: [] };
   var hasSt = Q.hasStatus;
   Q.list.forEach(function (o) {
     var ds = o.life || o, known = !!(hasSt && o.fb && o.fbOff != null), isOff = !!(known && o.fbOff), isOn = !known || !o.fbOff;
