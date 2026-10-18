@@ -152,6 +152,16 @@ FD.geoGuess = function (camp, ad) {
 /* сводим */
 FD.OFF_RX = /inactive|paused|off\b|archived|deleted|completed|неактив|выкл|приостан|архив|удал|заверш/i;
 FD.quick = function (pb, fb, period, mode) {
+  /* есть выгрузки FB → считаем только кампании этих РК; Power BI нужен для них как трекер (депы, выплаты). Только Power BI → всё. */
+  var pbScope = null;
+  if (pb && fb && fb.recs.length) {
+    var byCamp = fb.recs.some(function (x) { return x.camp; }), fset = {};
+    fb.recs.forEach(function (x) { fset[byCamp ? FD.matchCamp(x.camp) : FD.crKey(x.camp, x.ad, x.adset, 'cr')] = 1; });
+    var keepR = pb.recs.filter(function (x) { return byCamp ? (x.camp && fset[FD.matchCamp(x.camp)]) : fset[FD.crKey(x.camp, x.ad, x.adset, 'cr')]; });
+    var sp = function (a) { return a.reduce(function (t, x) { return t + (x.spend || 0); }, 0); };
+    pbScope = { total: pb.recs.length, kept: keepR.length, spendTotal: sp(pb.recs), spendKept: sp(keepR) };
+    pb = { det: pb.det, recs: keepR, files: pb.files };
+  }
   var lastDay = null;
   if (pb) pb.recs.forEach(function (x) { if (x.dn != null) lastDay = lastDay == null ? x.dn : Math.max(lastDay, x.dn); });
   if (fb) { if (fb.byDay) fb.recs.forEach(function (x) { if (x.dn != null) lastDay = lastDay == null ? x.dn : Math.max(lastDay, x.dn); }); else if (fb.end != null && lastDay == null) lastDay = fb.end; }
@@ -166,7 +176,9 @@ FD.quick = function (pb, fb, period, mode) {
   var orphan = { fd: 0, rev: 0 };
   var read = {};
   if (pb) { var rc = {}, rcr = {}, dd = []; read.pb = { spend: 0, fd: 0, camps: 0, cr: 0 }; pb.recs.forEach(function (x) { read.pb.spend += x.spend; read.pb.fd += x.fd; if (x.camp) rc[FD.normCamp(x.camp)] = 1; rcr[FD.crKey(x.camp, x.ad, x.adset, 'cr')] = 1; if (x.dn != null) dd.push(x.dn); }); read.pb.camps = Object.keys(rc).length; read.pb.cr = Object.keys(rcr).length; if (dd.length) read.pb.days = FD.dayStr(Math.min.apply(null, dd)) + '–' + FD.dayStr(Math.max.apply(null, dd)); }
-  if (fb) { read.fb = { rows: fb.recs.length, spend: fb.recs.reduce(function (a, x) { return a + x.spend; }, 0) }; }
+  if (fb) { read.fb = { rows: fb.recs.length, spend: fb.recs.reduce(function (a, x) { return a + x.spend; }, 0) };
+    var fk = {}; fb.recs.forEach(function (x) { var k = FD.crKey(x.camp, x.ad, x.adset, mode), q = fk[k] || (fk[k] = { s: 0, d: 0 }); q.s += x.spend; q.d += x.fd; });
+    read.fb.cr = Object.keys(fk).length; read.fb.zero = Object.keys(fk).filter(function (k) { return fk[k].s <= 0.5 && !fk[k].d; }); }
   var outP = { spend: 0, fd: 0, keys: {} };
   if (pb) pb.recs.forEach(function (x) { if (!inP(x)) { outP.spend += x.spend; outP.fd += x.fd; outP.keys[FD.crKey(x.camp, x.ad, x.adset, mode)] = 1; } });
   if (pb) pb.recs.filter(inP).forEach(function (x) {
@@ -208,6 +220,8 @@ FD.quick = function (pb, fb, period, mode) {
     o.life = L && (L.spend > o.spend + 0.5 || L.fd > o.fd) ? L : null;
     var ds = o.life || o;
     o.v = FD.decide(ds.spend, ds.clk, ds.regs, ds.fd, o.age);
+    var dsRev = o.life ? o.life.rev : (o.pb ? o.pb.rev : (o.fb.rev || o.fb.fd * FD.PAYOUT));
+    if ((o.v.code === 'cut' || o.v.code === 'kill') && ds.fd > 0 && dsRev >= ds.spend) o.v = { code: 'hold', label: 'ДЕРЖИ, НЕ ДУБЛИРУЙ', cls: 'good', why: 'Деп по $' + Math.round(ds.spend / ds.fd) + ' дороговат, но выплаты выше — по трекеру ты в плюсе (ROI ' + Math.round((dsRev / ds.spend - 1) * 100) + '%). Не режь. Дубли — когда деп станет дешевле $110.' };
     if (o.life) o.v.why = 'За всю жизнь креатива: $' + Math.round(ds.spend) + ', ' + FD.pl(Math.round(ds.fd), 'деп', 'депа', 'депов') + '. ' + o.v.why;
     if (o.v.code === 'wait' && o.age > 1) o.v = { code: 'idle', label: 'НЕ ТРАТИТ', cls: 'muted', why: 'Креатив уже не новый (день ' + o.age + '), а в этом периоде FB на него почти не тратит. Выгорел или выключен. Если депов за жизнь нет — выключи и не жди.' };
     if (o.spend < 5 && o.fd > 0) o.v = { code: 'hold', label: 'ДЕПЫ ДОЕХАЛИ', cls: 'good', why: 'В этом периоде креатив почти не тратил, но доехали депы от прошлых дней (' + o.fd + '). Смотри его за весь срок — выбери «Всё».' };
@@ -303,7 +317,7 @@ FD.quick = function (pb, fb, period, mode) {
     if (!fb.hasFd) warn.push('В выгрузке FB нет колонки «Покупки» (Purchases) — депы FB сравнить не с чем. Добавь колонку в Ads Manager.');
   }
   var groups = {}; list.forEach(function (o) { (groups[o.v.code] = groups[o.v.code] || []).push(o); });
-  return { read: read, outP: outP, unmatchedPb: unmatchedPb, accts: acctList, cowards: cowards, rightKills: rightKills, rk: rk, goodHolds: goodHolds, burning: burning, hasStatus: !!(fb && fb.hasStatus), mode: mode || 'cr', list: list, T: T, orphan: orphan, lockFb: lockFb, to: to, groups: groups, warn: warn, lastDay: lastDay, from: from, period: period, hasPb: !!pb, hasFb: !!fb, fbRange: fb && fb.start != null ? FD.dayStr(fb.start) + '–' + FD.dayStr(fb.end) : null };
+  return { pbScope: pbScope, read: read, outP: outP, unmatchedPb: unmatchedPb, accts: acctList, cowards: cowards, rightKills: rightKills, rk: rk, goodHolds: goodHolds, burning: burning, hasStatus: !!(fb && fb.hasStatus), mode: mode || 'cr', list: list, T: T, orphan: orphan, lockFb: lockFb, to: to, groups: groups, warn: warn, lastDay: lastDay, from: from, period: period, hasPb: !!pb, hasFb: !!fb, fbRange: fb && fb.start != null ? FD.dayStr(fb.start) + '–' + FD.dayStr(fb.end) : null };
 };
 
 FD.pl = function (n, a, b, c) { var m = Math.abs(n) % 100, k = m % 10; return n + ' ' + (m > 10 && m < 20 ? c : k === 1 ? a : k >= 2 && k <= 4 ? b : c); };
@@ -411,7 +425,7 @@ FD.nowPlan = function (Q, nyH, off) {
     var ds = o.life || o, known = !!(hasSt && o.fb && o.fbOff != null), isOff = !!(known && o.fbOff), isOn = !known || !o.fbOff;
     if (hasSt && !o.fb) { if (o.v.code !== 'idle') B.nofb.push({ o: o, off: null }); return; }
     var push = function (k, it) { it.off = isOff; B[k].push(it); };
-    if (o.v.code === 'idle') { if (known && !isOff && !ds.fd) push('reup', { o: o, why: 'включён, а FB почти не тратит (день ' + o.age + ') — эту выключи, залей копию в другой РК' }); return; }
+    if (o.v.code === 'idle') { if (known && !isOff && !ds.fd) push('reup', { o: o, why: 'включён, а FB почти не тратит (день ' + o.age + ') — эту выключи, залей копию в другой РК' }); else if (isOff) push('dead', { o: o }); return; }
     var cw = !o.nonUS && ['keep', 'hold', 'dub'].indexOf(o.v.code) > -1 && ds.spend >= 5;
     var win = o.v.code === 'dub' || (o.v.code === 'hold' && ds.fd > 0);
     if (isOff) {
@@ -429,6 +443,10 @@ FD.nowPlan = function (Q, nyH, off) {
     }
     if (o.v.code === 'dub') { push(ds.fd >= 3 && (ds.rev / ds.spend - 1) * 100 >= 50 ? 'scale' : 'dub', { o: o }); return; }
     if (o.v.code === 'wait') { push('reup', { o: o, why: 'FB не берёт в показ — копия в другой РК' }); return; }
+    if ((o.v.code === 'cut' || o.v.code === 'kill') && ds.fd > 0) {
+      if (ds.rev >= ds.spend) { push('keep', { o: o, why: 'по трекеру в плюсе (ROI ' + Math.round((ds.rev / ds.spend - 1) * 100) + '%) — не режь, даже если деп дороговат' }); return; }
+      if (nyH >= 15 || nyH < 11) { push('keep', { o: o, why: 'в минусе, но депы были — сейчас не режь: депы доезжают в трекер с опозданием. Реши днём по США — с ' + ('0' + Math.round(((11 + off) % 24 + 24) % 24)).slice(-2) + ':00 по-твоему, по сумме за всю жизнь' }); return; }
+    }
     if (o.v.code === 'cut') { push('cut', { o: o }); return; }
     if (o.v.code === 'kill') { push('kill', { o: o }); return; }
     if (isOn) push('keep', { o: o });
@@ -437,11 +455,11 @@ FD.nowPlan = function (Q, nyH, off) {
   var start = mk(7), late = mk(15), ph, launch;
   if (h < 6) { ph = 'night'; launch = { ok: 0, t: 'Нет. В США ночь (' + ('0' + Math.floor(h)).slice(-2) + ':xx), людей нет — включать сейчас тупо: FB потратит на мусор или вообще не открутит. Подготовь копии, пройди модерацию, а включай с ' + start + ' по-твоему (7 утра в Нью-Йорке).' }; }
   else if (h < 11) { ph = 'morning'; launch = { ok: 2, t: 'Да, самое время. В США утро — всё, что включишь сейчас, успеет набрать трафик за день.' }; }
-  else if (h < 15) { ph = 'day'; launch = { ok: 2, t: 'Да, ещё можно. В США день. Заливай до ' + late + ' по-твоему — позже уже поздно.' }; }
-  else if (h < 17) { ph = 'late'; launch = { ok: 1, t: 'Можно, но только дубли победителей. Новые тесты сейчас не запускай — до вечера не обучатся. Остальное — завтра с ' + start + '.' }; }
-  else { ph = 'evening'; launch = { ok: 0, t: 'Нет. В США вечер — до конца их дня мало, новое не успеет обучиться, а бюджет сожрёт. Подготовь всё и включай завтра с ' + start + ' по-твоему.' }; }
+  else if (h < 15) { ph = 'day'; launch = { ok: 2, t: 'Да. В США день, впереди их вечер — самое жирное время. Всё, что включишь сейчас, как раз к нему обучится.' }; }
+  else if (h < 21) { ph = 'evening'; launch = { ok: 2, t: 'Да, можно. В США вечер — пик депов, новое стартует на самом жирном трафике. Но ты будешь спать, поэтому сразу после запуска поставь автоправила: $25 и 0 кликов → выкл; $40 и клик дороже $8 → выкл; $200 и 0 покупок → выкл. Тогда дохлый креатив за ночь съест максимум $25–40, а нормальный спокойно докрутит до депа.' }; }
+  else { ph = 'late'; launch = { ok: 1, t: 'Можно, но уже поздно: в США скоро ночь, трафик падает. Включишь сейчас — креатив покрутится пару часов и встанет до их утра. Лучше залей, пройди модерацию и включай с ' + mk(7) + ' по-твоему или в их вечер. Включаешь всё равно — только с автоправилами.' }; }
   var killT = h < 11 ? { ok: 2, t: 'Да, выключать сливы можно всегда. Только помни: вчерашние депы ещё доезжают в трекер до обеда — если креатив вчера давал депы, глянь его ещё раз ближе к ' + mk(12) + '.' } : { ok: 2, t: 'Да, сливы выключай сразу — каждая минута стоит денег.' };
-  var keepT = ph === 'evening' ? 'Вечер в США — самый жирный кусок. Ничего не трогай, поставь автоправила и иди спать.' : ph === 'night' ? 'Ночь в США — цифры почти не меняются. Не дёргай.' : 'Не трогай. Проверь через час-два по лестнице.';
+  var keepT = ph === 'evening' || ph === 'late' ? 'Вечер в США — самый жирный кусок. Ничего не трогай, поставь автоправила и иди спать.' : ph === 'night' ? 'Ночь в США — цифры почти не меняются. Не дёргай.' : 'Не трогай. Проверь через час-два по лестнице.';
   return { B: B, ph: ph, launch: launch, kill: killT, keepT: keepT, start: start, late: late, hasSt: hasSt };
 };
 

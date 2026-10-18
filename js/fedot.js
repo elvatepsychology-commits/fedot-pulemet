@@ -166,6 +166,7 @@ FD.mood = function (m) {
 FD.mouth = function (on) {
   var els = document.querySelectorAll('.fedot');
   clearInterval(FD._flap);
+  document.body.classList.toggle('speaking', !!on);
   if (!on) { els.forEach(function (e) { e.classList.remove('talking', 'open'); }); return; }
   els.forEach(function (e) { e.classList.add('talking'); });
   FD._flap = setInterval(function () {
@@ -187,7 +188,7 @@ FD.say = function (text, opts) {
   var typingDone = false, speechDone = !voiceOn;
   function finish() { if (typingDone && speechDone) { FD.mouth(false); if (opts.done) opts.done(); } }
   FD._type = setInterval(function () {
-    i += 2; bubble.textContent = t.slice(0, i);
+    i += 2; bubble.textContent = t.slice(0, i); if (bubble.scrollHeight > bubble.clientHeight) bubble.scrollTop = bubble.scrollHeight;
     if (i >= t.length) { clearInterval(FD._type); bubble.textContent = t; typingDone = true; if (!voiceOn) setTimeout(finish, 250); else finish(); }
   }, speed);
   if (voiceOn) {
