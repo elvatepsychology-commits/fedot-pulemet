@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Федот Пулемёт</title>
+<meta name="description" content="Сеньор Федот и Сеньора Зина Пулемёт — злые наставники по заливу: курс, план дня, разбор таблиц Power BI.">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><span class="fedot" aria-hidden="true"></span><h1><b data-n="short">Федот</b> Пулемёт<span data-n="title">СЕНЬОР МЕДИАБАЕР</span></h1></div>
+    <div class="hud">
+      <button class="ctl" id="charBtn" type="button" title="Сменить наставника">🔁 <span class="lbl" data-n="short">Федот</span></button>
+      <span id="hudXp">0 XP</span><span id="hudRank">Турист</span><span id="hudStreak">0 дн. подряд</span>
+      <button class="ctl" id="voiceBtn" aria-pressed="false" type="button"><span aria-hidden="true">🔊</span><span class="lbl">Голос выкл</span></button>
+      <button class="ctl" id="matBtn" type="button"><span class="lbl">Мат: жёстко</span></button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <aside class="side">
+    <div class="fedot" id="fedotBig" title="Ткни в Федота"></div>
+    <div class="bubble" aria-live="polite"><span class="who" data-n="up">ФЕДОТ</span><span id="bubbleText"></span></div>
+    <div class="side-ctl">
+      <button class="ctl" id="replayBtn" type="button">Повторить</button>
+      <label for="voiceSel">Голос <select id="voiceSel"></select></label>
+      <button class="ctl hint" id="voiceHint" type="button" hidden>В системе только женские голоса. Включить Зину?</button>
+      <label for="rate">Скорость речи <input id="rate" type="range" min="0.8" max="1.5" step="0.05"></label>
+    </div>
+  </aside>
+
+  <main>
+    <nav class="tabs" role="tablist" aria-label="Разделы">
+      <button class="tab" role="tab" data-tab="path" type="button">Путь</button>
+      <button class="tab" role="tab" data-tab="review" type="button">Повтор<span class="badge" id="dueBadge" hidden>0</span></button>
+      <button class="tab" role="tab" data-tab="plan" type="button">План дня</button>
+      <button class="tab" role="tab" data-tab="parse" type="button">Разбор таблиц</button>
+      <button class="tab" role="tab" data-tab="map" type="button">Карта штатов</button>
+      <button class="tab" role="tab" data-tab="cheat" type="button">Шпаргалка</button>
+    </nav>
+
+    <!-- ПУТЬ -->
+    <section class="view" id="v-path" hidden>
+      <div id="pathWrap">
+        <h2>Путь от туриста до злого баера</h2>
+        <p class="lead">13 коротких уроков на цифрах всей компании: 50 баеров, лучшие привычки каждого. Измаилов — главный ориентир по объёму, Endless Dream — по цене депа, Иван — по историям, sii1m, Evg_1989 и artempankra — по ROI в октябре. И твои цифры рядом. После каждого урока вопросы, карточки встают на повтор. Так знания держатся, а не вылетают через три дня.</p>
+        <div class="prog"><i id="pathProg"></i></div><p class="mut sm" id="pathCount"></p>
+        <div class="path" id="pathList"></div>
+      </div>
+      <div id="lesson" hidden>
+        <div class="lesson-head"><div><span class="eyebrow" id="lessonTag"></span><h2 id="lessonTitle"></h2></div><button class="x" id="lessonClose" type="button">✕ Выйти</button></div>
+        <div class="prog"><i id="lessonStep"></i></div>
+        <div id="lessonBody"></div>
+        <div class="lesson-foot"><button class="btn ghost" id="lessonPrev" type="button">Назад</button><button class="btn" id="lessonNext" type="button">Дальше</button></div>
+      </div>
+    </section>
+
+    <!-- ПОВТОР -->
+    <section class="view" id="v-review" hidden>
+      <h2>Повтор</h2>
+      <p class="lead">Карточки приходят по графику 1 → 3 → 7 → 16 дней. Сначала сам вспоминаешь, потом переворачиваешь и честно жмёшь «Помнил» или «Забыл».</p>
+      <p class="mut sm" id="reviewStat"></p>
+      <div id="reviewBox"></div>
+    </section>
+
+    <!-- ПЛАН -->
+    <section class="view" id="v-plan" hidden>
+      <h2>План дня</h2>
+      <p class="lead">Вбей, сколько у тебя времени и бабок, и <span data-n="short">Федот</span> посчитает, сколько креативов заливать, во сколько и какие штаты брать. Время — Москва/Минск.</p>
+      <div class="form">
+        <label for="pNow">Сейчас<input id="pNow" type="time"></label>
+        <label for="pHours">Свободных часов<input id="pHours" type="number" min="1" max="20" step="0.5"></label>
+        <label for="pLimit">Лимит спенда, $<input id="pLimit" type="number" min="50" step="50"></label>
+        <label for="pAcc">Аккаунтов<input id="pAcc" type="number" min="1" step="1"></label>
+        <label for="pStories">Готовых историй<input id="pStories" type="number" min="1" step="1"></label>
+        <button class="btn" id="planBtn" type="button"><span data-n="short">Федот</span>, составь план</button>
+      </div>
+      <div id="planOut"></div>
+    </section>
+
+    <!-- РАЗБОР -->
+    <section class="view" id="v-parse" hidden>
+      <h2>Разбор таблиц</h2>
+      <p class="lead">Кидай выгрузки из Power BI: отчёт по кампаниям или по креативам. Всё считается прямо в браузере, файлы никуда не уходят.</p>
+      <div class="howto">
+        <div><b>1</b>Power BI → «Экспортировать» → <b style="display:inline;font-size:inherit">Сводные данные</b> → XLSX.</div>
+        <div><b>2</b>Перед экспортом раскрой таблицу до объявлений и оставь день в строках.</div>
+        <div><b>3</b>Отчёт по креативам (FacebookNew) тоже кидай — разберу по историям, штатам и казино.</div>
+      </div>
+      <label class="drop" id="drop" for="fileIn">
+        <span class="fedot" style="width:70px" aria-hidden="true"></span>
+        <b>Кинь сюда .xlsx или нажми</b>
+        <span class="btn fileb">Выбрать файлы<input id="fileIn" type="file" accept=".xlsx,.xls,.csv" multiple></span>
+        <span class="mut sm">Можно сразу несколько файлов</span>
+      </label>
+      <div id="parseOut"></div>
+    </section>
+
+    <!-- КАРТА -->
+    <section class="view" id="v-map" hidden>
+      <h2>Карта штатов</h2>
+      <p class="lead">Цвет = куда лить сейчас. Посчитано по всей команде (50 баеров, сентябрь + 1–18 октября), главный вес у 10–18 октября. Ткни в штат.</p>
+      <div class="legend"><span><i style="background:var(--good)"></i>Лить первым</span><span><i style="background:var(--acc)"></i>Тестить срочно</span><span><i style="background:var(--warn)"></i>Можно, следи</span><span><i style="background:var(--kill)"></i>Осторожно</span><span><i style="background:var(--panel2)"></i>Нет данных</span></div>
+      <div class="usmap" id="usmap"></div>
+      <div class="info" id="stateInfo"><p class="mut">Ткни в любой штат на карте.</p></div>
+      <div class="two">
+        <div class="card"><h3>Казино в историях</h3><p class="mut sm">Код из названия креатива. ROI всей команды за 10–18 октября.</p><div class="tbl"><table style="min-width:0"><thead><tr><th>Код</th><th>Штат</th><th class="n">ROI сейчас</th></tr></thead><tbody id="casinoList"></tbody></table></div></div>
+        <div class="card"><h3>Истории, которые тянут</h3><div class="tbl"><table style="min-width:0"><thead><tr><th>История</th><th>Чья</th><th>Итог</th></tr></thead><tbody id="storyList"></tbody></table></div>
+          <p class="mut sm">Главная закономерность: вся компания льёт одни и те же офферы в одни и те же штаты. В AL в октябре лили 17 баеров — и она ушла в минус. Лучше всего там, где толпы нет: TN, ID, GA.</p></div>
+      </div>
+    </section>
+
+    <!-- ШПАРГАЛКА -->
+    <section class="view" id="v-cheat" hidden>
+      <h2>Шпаргалка</h2>
+      <p class="lead">Всё главное на одном экране. Открывай во время залива.</p>
+      <div class="card"><h3>Калькулятор: что делать с креативом</h3><p class="mut sm">Цифры по креативу целиком — сумма всех копий.</p>
+        <div class="calc">
+          <label for="cS">Спенд, $<input id="cS" type="number" value="45" min="0"></label>
+          <label for="cK">Клики<input id="cK" type="number" value="11" min="0"></label>
+          <label for="cR">Реги<input id="cR" type="number" value="2" min="0"></label>
+          <label for="cD">Депы<input id="cD" type="number" value="0" min="0"></label>
+          <label for="cA">День жизни<input id="cA" type="number" value="1" min="1"></label>
+        </div>
+        <div id="cOut"></div>
+        <button class="btn ghost" id="cSay" type="button"><span data-n="short">Федот</span>, скажи вслух</button>
+      </div>
+      <div class="card" style="margin-top:12px"><h3>Лестница без депа</h3><div data-chart="ladder"></div></div>
+      <div class="two">
+        <div class="card"><h3>Светофор</h3><table class="t"><tr><th></th><th class="good">Огонь</th><th>Норм</th><th class="warn">Аккуратно</th><th class="bad">Плохо</th></tr>
+          <tr><td>Кликают из 100</td><td>3,5+</td><td>2,5–3,5</td><td>2–2,5</td><td>&lt;2</td></tr>
+          <tr><td>Цена клика</td><td>до $3</td><td>$3–5</td><td>$5–8</td><td>$8+</td></tr>
+          <tr><td>Цена реги</td><td>до $12</td><td>$12–18</td><td>$18–32</td><td>$32+</td></tr>
+          <tr><td>Цена депа</td><td>до $80</td><td>$80–110</td><td>$110–150</td><td>$150+</td></tr></table>
+          <p class="mut sm">Деп ≈ клик × 19 ≈ рега × 5. Выплата ~$158.</p></div>
+        <div class="card"><h3>Бюджеты</h3><table class="t">
+          <tr><td>Тест 3-5-1</td><td><b>$100</b> на копию = $300 на креатив</td></tr>
+          <tr><td>1-3-1 как Измаилов</td><td>$50–100 на группу</td></tr>
+          <tr><td>Победитель (деп ≤ $110)</td><td>Оригинал не трогать. 3 новые копии по <b>$200–300</b> + соседние штаты</td></tr>
+          <tr><td>Реально уйдёт</td><td>~$50 на креатив в день</td></tr></table></div>
+      </div>
+      <div class="card" style="margin-top:12px"><h3>Когда США живёт</h3><div data-chart="clock"></div><p class="mut sm">Заливай так, чтобы к 15:00–17:00 по Москве всё прошло модерацию. Проверки каждый час с 21:00 до 03:00.</p></div>
+    </section>
+  </main>
+</div>
+
+<footer>Цифры: отчёты Power BI команды за сентябрь и 1–18 октября 2026. Пороги — ориентир, лимит спенда всегда за тимлидом. Прогресс хранится только в этом браузере.</footer>
+
+<div class="intro" id="intro">
+  <div class="intro-card">
+    <span class="fedot" aria-hidden="true"></span>
+    <h2 data-n="name">Сеньор Федот Пулемёт</h2>
+    <p>Злой наставник по заливу. Матерится, ржёт над тобой и собирает лучшее от всей компании: объём Измаилова, деп Endless Dream, истории Ивана и октябрьский ROI топов.</p>
+    <div class="charpick" role="group" aria-label="Выбери наставника">
+      <button type="button" data-char="fedot" aria-pressed="true"><span class="ava fedot-mini"></span>Федот<small>мужской голос, если есть</small></button>
+      <button type="button" data-char="zina" aria-pressed="false"><span class="ava zina-mini"></span>Зина<small>если в системе только женский</small></button>
+    </div>
+    <label for="introVoice"><input type="checkbox" id="introVoice" checked> Пусть говорит голосом</label>
+    <button class="btn" id="startBtn" type="button">Погнали, <span data-n="short">Федот</span></button>
+  </div>
+</div>
+<div id="xpPop" aria-hidden="true"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/course.js"></script>
+<script src="js/fedot.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/analyzer.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

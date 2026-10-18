@@ -1,0 +1,62 @@
+<svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" class="fedot-svg" aria-label="Сеньор Федот Пулемёт">
+  <defs>
+    <radialGradient id="fbg" cx="50%" cy="38%" r="70%"><stop offset="0" stop-color="#FFB547"/><stop offset="1" stop-color="#FF5A3C"/></radialGradient>
+    <linearGradient id="fgold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE38A"/><stop offset="1" stop-color="#E0A21B"/></linearGradient>
+    <clipPath id="fclip"><circle cx="120" cy="120" r="118"/></clipPath>
+  </defs>
+  <circle cx="120" cy="120" r="118" fill="url(#fbg)"/>
+  <g clip-path="url(#fclip)">
+    <g class="f-rays" opacity=".18" stroke="#fff" stroke-width="6">
+      <line x1="120" y1="120" x2="120" y2="-10"/><line x1="120" y1="120" x2="250" y2="40"/><line x1="120" y1="120" x2="-10" y2="40"/>
+    </g>
+    <g class="f-body">
+      <path d="M22 250 C32 186 74 168 120 168 C166 168 208 186 218 250 Z" fill="#2B1F63"/>
+      <path d="M88 170 L120 206 L152 170" fill="none" stroke="#1C1446" stroke-width="6" stroke-linejoin="round"/>
+      <line x1="104" y1="190" x2="100" y2="222" stroke="#E9E4FF" stroke-width="3" stroke-linecap="round"/>
+      <line x1="136" y1="190" x2="140" y2="222" stroke="#E9E4FF" stroke-width="3" stroke-linecap="round"/>
+      <g class="f-chain">
+        <path d="M84 172 Q120 214 156 172" fill="none" stroke="url(#fgold)" stroke-width="5" stroke-dasharray="3 3"/>
+        <circle cx="120" cy="206" r="13" fill="url(#fgold)" stroke="#B57A00" stroke-width="2"/>
+        <text x="120" y="212" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="16" fill="#7A4A00">$</text>
+      </g>
+    </g>
+    <g class="f-head">
+      <rect x="104" y="150" width="32" height="24" rx="8" fill="#E2A97F"/>
+      <circle cx="68" cy="118" r="11" fill="#E9B48C"/><circle cx="172" cy="118" r="11" fill="#E9B48C"/>
+      <ellipse cx="120" cy="114" rx="52" ry="58" fill="#F1C39C"/>
+      <path d="M78 136 Q120 182 162 136 Q150 170 120 172 Q90 170 78 136 Z" fill="#E5AE85" opacity=".55"/>
+      <!-- кепка задом наперёд -->
+      <path d="M66 96 C66 46 174 46 174 96 C150 84 90 84 66 96 Z" fill="#1D1640"/>
+      <path d="M66 96 C90 88 150 88 174 96" fill="none" stroke="#FF5A3C" stroke-width="5"/>
+      <path d="M58 92 C46 92 40 100 44 104 C56 102 64 100 70 98 Z" fill="#1D1640"/>
+      <text x="120" y="76" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900" font-size="18" fill="#FFC53D">FP</text>
+      <!-- брови -->
+      <g class="f-brows" fill="#3A2210">
+        <path class="f-brow-l" d="M80 94 Q98 86 114 93 L113 99 Q98 94 81 100 Z"/>
+        <path class="f-brow-r" d="M126 93 Q142 86 160 94 L159 100 Q142 94 127 99 Z"/>
+      </g>
+      <!-- очки -->
+      <g class="f-glasses">
+        <rect x="80" y="100" width="36" height="22" rx="9" fill="#111"/>
+        <rect x="124" y="100" width="36" height="22" rx="9" fill="#111"/>
+        <path d="M116 108 Q120 104 124 108" stroke="#111" stroke-width="4" fill="none"/>
+        <line x1="80" y1="106" x2="68" y2="110" stroke="#111" stroke-width="4"/><line x1="160" y1="106" x2="172" y2="110" stroke="#111" stroke-width="4"/>
+        <path class="f-shine" d="M86 106 L96 104 M130 106 L140 104" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+      </g>
+      <ellipse cx="120" cy="132" rx="9" ry="7" fill="#E09B72"/>
+      <!-- рот -->
+      <g class="f-mouth">
+        <path class="m-closed" d="M106 154 Q120 160 134 154" stroke="#7A2E1E" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <g class="m-open"><ellipse cx="120" cy="156" rx="13" ry="9" fill="#5B1712"/><rect x="110" y="148" width="20" height="5" rx="2" fill="#fff"/><ellipse cx="120" cy="161" rx="7" ry="3" fill="#E0605A"/></g>
+      </g>
+      <!-- усы-пулемёт -->
+      <path class="f-stache" d="M120 140 C108 136 94 138 86 146 C80 152 74 150 72 144 C74 156 88 160 100 152 C108 147 114 146 120 148 C126 146 132 147 140 152 C152 160 166 156 168 144 C166 150 160 152 154 146 C146 138 132 136 120 140 Z" fill="#4A2A12"/>
+      <!-- гарнитура -->
+      <path d="M62 116 C58 54 182 54 178 116" fill="none" stroke="#1B1B1B" stroke-width="6"/>
+      <rect x="54" y="106" width="14" height="24" rx="6" fill="#1B1B1B"/><rect x="172" y="106" width="14" height="24" rx="6" fill="#1B1B1B"/>
+      <path d="M62 128 Q70 160 98 160" fill="none" stroke="#1B1B1B" stroke-width="4"/>
+      <circle class="f-mic" cx="100" cy="160" r="5" fill="#FF5A3C"/>
+    </g>
+  </g>
+  <circle cx="120" cy="120" r="117" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>
+</svg>
