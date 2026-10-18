@@ -320,7 +320,7 @@ FD.quick = function (pb, fb, period, mode) {
       warn.push('Периоды разные: FB ' + FD.dayStr(fb.start) + '–' + FD.dayStr(fb.end) + ', в Power BI есть ' + FD.dayStr(pbFrom) + '–' + FD.dayStr(pbTo) + '. Сравниваю только общие дни, но у FB внутри больше дней — его депов может быть больше. Для точной сверки выгрузи оба за одни и те же даты.');
     if (!fb.hasFd) warn.push('В выгрузке FB нет колонки «Покупки» (Purchases) — депы FB сравнить не с чем. Добавь колонку в Ads Manager.');
   }
-  if (!multiDay && !pb && fb) warn.unshift('Файл за один день — решаю по цифрам этого дня (свежая аудитория, свежие метрики). Чтобы видеть и сегодня, и всю жизнь креатива — выгружай FB за «Maximum» с разбивкой по дням и жми «За последний день». По одному дню удобнее режим «По кампаниям»: каждая копия — своя аудитория, режешь выгоревшую копию, а не весь креатив.');
+  if (!multiDay && !pb && fb) warn.unshift('Файл за один день — решаю по цифрам этого дня (свежая аудитория, свежие метрики). Чтобы видеть и сегодня, и всю жизнь креатива — выгружай FB за «Maximum» с разбивкой по дням и жми «За последний день».');
   var groups = {}; list.forEach(function (o) { (groups[o.v.code] = groups[o.v.code] || []).push(o); });
   return { oneDay: !multiDay && !pb && !!fb, multiDay: multiDay, pbScope: pbScope, read: read, outP: outP, unmatchedPb: unmatchedPb, accts: acctList, cowards: cowards, rightKills: rightKills, rk: rk, goodHolds: goodHolds, burning: burning, hasStatus: !!(fb && fb.hasStatus), mode: mode || 'cr', list: list, T: T, orphan: orphan, lockFb: lockFb, to: to, groups: groups, warn: warn, lastDay: lastDay, from: from, period: period, hasPb: !!pb, hasFb: !!fb, fbRange: fb && fb.start != null ? FD.dayStr(fb.start) + '–' + FD.dayStr(fb.end) : null };
 };

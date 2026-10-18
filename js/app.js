@@ -231,7 +231,7 @@
 
   /* ---------- РАЗБОР ---------- */
   /* ---------- быстрый разбор (Power BI + FB) ---------- */
-  var QS = { pb: null, fb: null, pbName: '', fbName: '', per: 0, mode: 'cr', fbFiles: [], pbFiles: [] };
+  var QS = { pb: null, fb: null, pbName: '', fbName: '', per: 0, mode: 'camp', fbFiles: [], pbFiles: [] };
   function readClassify(f) {
     return FD.readFile(f).then(function (rows) {
       var cut = rows.slice(0, 4).some(function (r) { return (r || []).some(function (c) { return /Exported data limited|данные ограничены/i.test(String(c || '')); }); });
