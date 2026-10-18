@@ -174,7 +174,7 @@ FD.mouth = function (on) {
 };
 FD.say = function (text, opts) {
   opts = opts || {};
-  var t = FD.clean(text);
+  var t = FD.clean(text); FD.lastSaid = text;
   var bubble = document.getElementById('bubbleText');
   if (!bubble) return;
   FD.mood(opts.mood || null);
@@ -200,8 +200,9 @@ FD.say = function (text, opts) {
     } catch (e) { speechDone = true; }
   }
 };
-FD.shut = function () {
+FD.shut = function (full) {
   clearInterval(FD._type);
+  if (full && FD.lastSaid) { var b = document.getElementById('bubbleText'); if (b) b.textContent = FD.clean(FD.lastSaid); }
   try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) {}
   FD.mouth(false);
 };

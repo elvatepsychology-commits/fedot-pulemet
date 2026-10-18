@@ -104,6 +104,24 @@ FD.ch.clock = function (el) {
 };
 
 /* шаблоны графиков для слайдов курса */
+/* Казино внутри штата: какие плюсуют, какие нет */
+FD.ch.casStates = function (el, only, minSpend) {
+  minSpend = minSpend || 0;
+  var by = {};
+  FD.CASINOS.forEach(function (c) { if (c[5] >= minSpend && c[2] != null) (by[c[1]] = by[c[1]] || []).push(c); });
+  var sts = Object.keys(by).filter(function (k) { return only ? only.indexOf(k) > -1 : by[k].length >= 2; });
+  if (!only) sts = sts.filter(function (k) { var r = by[k].map(function (c) { return c[2]; }); return Math.max.apply(null, r) - Math.min.apply(null, r) >= 30; });
+  sts.sort(function (a, b) { var sa = by[a].reduce(function (x, c) { return x + c[5]; }, 0), sb = by[b].reduce(function (x, c) { return x + c[5]; }, 0); return sb - sa; });
+  if (!only) sts = sts.slice(0, 8);
+  var max = 200;
+  el.innerHTML = '<div class="casst">' + sts.map(function (k) {
+    var S = FD.STATES[k];
+    return '<div class="casst-s"><div class="casst-h"><b>' + k + '</b> ' + (S ? S.n + ' · штат сейчас ' + S.now : '') + '</div>' + by[k].sort(function (a, b) { return b[2] - a[2]; }).map(function (c) {
+      var v = Math.max(-100, Math.min(max, c[2])), w = Math.abs(v) / (max + 100) * 100, cls = c[4] === 'thin' ? 'thin' : c[2] >= 60 ? 'good' : c[2] >= 0 ? 'warn' : 'bad';
+      return '<div class="casst-r ' + cls + '"><span class="nm">' + FD.casName(c[0]) + (FD.CAS_NAME[c[0]] ? ' <i>' + c[0] + '</i>' : '') + '</span><span class="bar"><i style="' + (v >= 0 ? 'left:33.3%;' : 'right:66.7%;') + 'width:' + w + '%"></i></span><span class="v">' + (c[2] > 0 ? '+' : '') + c[2] + '%</span><span class="m">$' + c[5].toLocaleString('ru-RU') + ' · ' + c[6] + ' деп · ' + c[7] + ' баер.' + (c[4] === 'thin' ? ' · мало данных' : '') + '</span></div>';
+    }).join('') + '</div>';
+  }).join('') + '</div><p class="mut sm">Вся команда, 10–18 октября. Бледным — меньше $300 спенда, это ещё не приговор.</p>';
+};
 FD.ch.slide = function (el, kind) {
   var B = FD.BENCH, C = { acc: 'var(--acc)', good: 'var(--good)', warn: 'var(--warn)', kill: 'var(--kill)', gold: 'var(--gold)', mute: 'var(--muted)' };
   if (kind === 'forget') FD.ch.lines(el, ['сразу', '1 день', '2 дня', '6 дней', '1 мес'], [{ name: 'без повтора', color: C.kill, values: [100, 45, 35, 25, 20] }, { name: 'с повтором', color: C.good, values: [100, 90, 92, 90, 88] }], { max: 110, ticks: [] });
@@ -126,10 +144,10 @@ FD.ch.slide = function (el, kind) {
       return '<div class="state ' + t[1] + '" style="animation-delay:' + i * 50 + 'ms"><b>' + k + '</b><span>' + st.n + '</span><em>' + st.all + '</em></div>';
     }).join('') + '</div>';
   }
-  if (kind === 'casinos') {
-    var cs = FD.CASINOS.filter(function (c, i) { return i < 8 || c[4] === 'stop'; }).slice(0, 14);
-    FD.ch.hbars(el, cs.map(function (c) { return { label: c[0] + ' · ' + c[1], value: c[2], color: c[2] >= 50 ? C.good : c[2] >= 0 ? C.warn : C.kill, text: (c[2] > 0 ? '+' : '') + c[2] + '%' }; }), { max: 170, min: -70, labelW: 150 });
-  }
+  if (kind === 'casinos') FD.ch.casStates(el, null, 200);
+  if (kind === 'weekdays') FD.ch.hbars(el, FD.WD.y26.map(function (a, i) { var r = Math.round(a[0]); return { label: FD.WD_SHORT[i] + ' · в плюсе ' + a[3] + ' из ' + a[4] + ' мес.', value: a[0], color: a[0] >= 5 ? C.good : a[0] <= -5 ? C.kill : C.warn, text: (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r) + ' п.п.' }; }), { max: 20, min: -16, labelW: 190 });
+  if (kind === 'months') { var MO = [['май 25', 15], ['июн 25', 12], ['июл 25', 40], ['авг 25', -5], ['сен 25', 30], ['окт 25', 28], ['ноя 25', 28], ['дек 25', 35], ['янв 26', 48], ['фев 26', 55], ['мар 26', 56], ['апр 26', 26], ['май 26', 37], ['июн 26', 17], ['июл 26', 26], ['авг 26', 50], ['сен 26', 80], ['окт 26', 61]];
+    FD.ch.hbars(el, MO.map(function (m) { return { label: m[0], value: m[1], color: m[1] >= 40 ? C.good : m[1] >= 0 ? C.warn : C.kill, text: (m[1] > 0 ? '+' : m[1] < 0 ? '−' : '') + Math.abs(m[1]) + '%' }; }), { max: 90, min: -10, labelW: 80 }); }
   if (kind === 'reg') FD.ch.hbars(el, [{ label: 'рега до $10', value: 84, color: C.good, text: '+84%' }, { label: 'рега $10–14', value: 118, color: C.good, text: '+118%' }, { label: 'рега $14–18', value: 74, color: C.good, text: '+74%' }, { label: 'рега $18–22 (ты)', value: 39, color: C.warn, text: '+39%' }, { label: 'рега $22–30', value: 12, color: C.warn, text: '+12%' }, { label: 'рега $30+', value: -20, color: C.kill, text: '−20%' }], { max: 130, min: -30, labelW: 150 });
   if (kind === 'market') FD.ch.vgroups(el, ['1–15 сен', '16–30 сен', '1–10 окт', '11–18 окт'], [{ name: 'ROI команды', color: C.acc, values: [88, 72, 77, 31] }], { max: 100, ticks: [0, 50, 100], suf: '%' });
   if (kind === 'firstdep') FD.ch.hbars(el, [{ label: '25% депов', value: 45, color: C.good, text: 'до $45' }, { label: '50% депов', value: 82, color: C.good, text: 'до $82' }, { label: '75% депов', value: 140, color: C.warn, text: 'до $140' }, { label: '90% депов', value: 212, color: C.kill, text: 'до $212' }], { max: 230 });

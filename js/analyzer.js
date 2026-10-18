@@ -79,6 +79,7 @@ FD.decide = function (S, K, R, D, age) {
   if (D > 0) {
     if (dep <= 110) return v('dub', 'ДУБЛЬ', 'acc', 'Деп по $' + Math.round(dep) + '. Оригинал не трогай, 3 новые копии по $200–300 в соседние штаты.');
     if (dep <= 150) return v('hold', 'ДЕРЖИ', 'good', 'Деп по $' + Math.round(dep) + ', в плюсе. Бюджет не трогай.');
+    if (dep > 300 && S >= 300) return v('kill', 'ВЫКЛ', 'kill', 'Деп по $' + Math.round(dep) + ' при выплате ~$158. Каждый деп стоит тебе больше двух выплат, ты в глубоком минусе. Выключай.');
     if (age >= 3 || S >= 300) return v('cut', 'РЕЖЬ ×0,5', 'warn', 'Деп по $' + Math.round(dep) + ' дороже $150, и креатив уже не новый. Режь вдвое, замена должна быть залита.');
     return v('hold', 'ДЕРЖИ', 'good', 'Деп дороже $150, но спенда мало. Смотри снова после $300.');
   }
@@ -98,7 +99,7 @@ FD.decide = function (S, K, R, D, age) {
 function q(arr, p) { if (!arr.length) return 0; var a = arr.slice().sort(function (x, y) { return x - y; }); var i = (a.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i); return a[lo] + (a[hi] - a[lo]) * (i - lo); }
 FD.q = q;
 
-FD.analyze = function (rows, fname) {
+FD.pbRecs = function (rows) {
   var det = FD.detect(rows); if (!det) throw new Error('Не нашёл заголовки. Нужна выгрузка из Power BI с колонками fb_campaign_name или fb_ad_name.');
   var c = det.col, data = rows.slice(det.hi + 1);
   /* у выгрузки «с макетом» верхние уровни (год, месяц, день, баер, кампания) пустые в строках ниже — протягиваем вниз */
@@ -127,7 +128,7 @@ FD.analyze = function (rows, fname) {
       if (typeof day !== 'number' && !/^\d+$/.test(String(day))) return;
       var ad = g(r, 'fb_adset_name');
       if (hasTotalAdset && String(ad) !== 'Total') return;
-      recs.push({ day: +day, month: g(r, 'Дата — Месяц'), camp: String(camp), adset: hasTotalAdset ? null : (ad != null ? String(ad) : null), ad: hasTotalAdset ? null : (g(r, 'fb_ad_name') != null ? String(g(r, 'fb_ad_name')) : null),
+      recs.push({ day: +day, month: g(r, 'Дата — Месяц'), year: g(r, 'Дата — Год'), dn: FD.dayNum ? FD.dayNum(g(r, 'Дата — Год'), g(r, 'Дата — Месяц'), +day) : null, camp: String(camp), adset: hasTotalAdset ? null : (ad != null ? String(ad) : null), ad: hasTotalAdset ? null : (g(r, 'fb_ad_name') != null ? String(g(r, 'fb_ad_name')) : null),
         spend: FD.num(r[spendCol]), imp: FD.num(g(r, 'Impressions')), clk: FD.num(g(r, 'Click')), regs: FD.num(g(r, 'Regs')), fd: FD.num(g(r, 'FD')), rev: FD.num(g(r, 'К выплате')) });
     });
   } else {
@@ -138,7 +139,11 @@ FD.analyze = function (rows, fname) {
     });
   }
   if (!recs.length) throw new Error('Строк с цифрами не нашёл. Проверь, что выгрузка с днями и с названиями кампаний или креативов.');
+  return { det: det, recs: recs };
+};
 
+FD.analyze = function (rows, fname) {
+  var P = FD.pbRecs(rows), det = P.det, recs = P.recs;
   var R = { file: fname, type: det.type, flat: det.type === 'campaign' && recs.some(function (x) { return x.ad; }) };
   var tot = { spend: 0, imp: 0, clk: 0, regs: 0, fd: 0, rev: 0 };
   recs.forEach(function (x) { ['spend', 'imp', 'clk', 'regs', 'fd', 'rev'].forEach(function (k) { tot[k] += x[k]; }); });
@@ -257,4 +262,86 @@ FD.roast = function (R) {
   var bad = R.geos.filter(function (s) { var st = FD.STATES[s.k]; return st && st.tier === 'stop' && s.spend > 30 && s.roi < 30; });
   if (bad.length) out.push({ mood: 'shock', text: 'В ' + bad.slice(0, 6).map(function (s) { return s.k; }).join(', ') + ' у тебя минус, и у команды там сейчас тоже плохо. Переезжай в Индиану, Миссури, Теннесси, Айдахо.' });
   return out;
+};
+
+/* Что значит вердикт — по-простому и что нажать */
+FD.EXPLAIN = {
+  dub: { what: 'Это победитель. Деп дешевле $110, а платят ~$158 — каждый деп даёт тебе ~$50+ сверху.', press: 'Оригинал НЕ трогай (не меняй бюджет, не редактируй). Сделай 3 новые копии этого креатива по $200–300 в другие аккаунты и залей историю в 3–5 соседних штатов.' },
+  hold: { what: 'Креатив в плюсе или около того. Всё работает, не мешай ему.', press: 'Ничего не нажимай. Проверь через час.' },
+  cut: { what: '«Режь ×0,5» = урежь дневной бюджет в 2 раза. Креатив выгорает: деп стал дороже выплаты, но иногда ещё приносит.', press: 'Было $100 на копию — поставь $50. Если завтра деп всё ещё дороже $150 — выключай. Замену (новый креатив) залей сегодня.' },
+  wait: { what: 'FB почти не тратит на креатив. Это не «плохой креатив», его просто не взяли в показ.', press: 'Если прошло 3+ часа американского дня — залей копию в другой аккаунт. Эту не трогай.' },
+  keep: { what: 'Данных пока мало, решать рано. Выключишь сейчас — можешь убить нормальный креатив.', press: 'Ничего не нажимай. Посмотри снова, когда спенд дойдёт до следующей ступеньки лестницы ($30 → $80 → $160).' },
+  kill: { what: 'Креатив сжёг деньги и шансов мало. Дальше он скорее всего будет только сливать.', press: 'Выключи все копии этого креатива (ползунок «Вкл» → выкл). Освободившиеся деньги — на новые запуски.' }
+};
+
+/* Похожие случаи из истории всей компании (сен – 16 окт) */
+FD.PRIO = ['p_izmailov', 'endless_dream11', 'zabyzza1'];
+FD.PRIO_NAME = { p_izmailov: 'Измаилов', endless_dream11: 'Endless Dream', zabyzza1: 'Иван' };
+FD.similar = function (S, K, R, D, age, opt) {
+  var H = FD.HIST; if (!H || !S) return null;
+  if (!H.wd) { H.wd = H.rows.map(function (r) { return (new Date(Date.UTC(2026, 0, r[2])).getUTCDay() + 6) % 7; }); H.mo = H.rows.map(function (r) { return new Date(Date.UTC(2026, 0, r[2])).getUTCMonth() + 1; }); }
+  var mset = opt && opt.months && opt.months.length ? opt.months : (FD.state && FD.state.ccfg && FD.state.ccfg.hm && FD.state.ccfg.hm.length ? FD.state.ccfg.hm : null);
+  var base = [], wds = [];
+  H.rows.forEach(function (r, i) { if (!mset || mset.indexOf(H.mo[i]) > -1) { base.push(r); wds.push(H.wd[i]); } });
+  var rows = base, wdHow = '';
+  if (opt && opt.wd != null) {
+    var grp = opt.group ? (opt.wd >= 5 ? [5, 6] : [0, 1, 2, 3, 4]) : [opt.wd];
+    rows = base.filter(function (r, i) { return grp.indexOf(wds[i]) > -1; });
+    wdHow = opt.group ? (opt.wd >= 5 ? 'только выходные' : 'только будни') : 'только ' + FD.WD_NAMES[opt.wd];
+  } cpc = K ? S / K : null, reg = R ? S / R : null;
+  function pick(tol, useC, useR) {
+    return rows.filter(function (r) {
+      var s = r[4], c = r[5], rg = r[6], d = r[7];
+      if (s < S / (1 + 0.35 * tol) || s > S * (1 + 0.35 * tol)) return false;
+      if (D >= 3 ? d < 3 : d !== D) return false;
+      if (age >= 4 ? r[3] < (tol > 1 ? 3 : 4) : Math.abs(r[3] - age) > (tol > 1 ? 1 : 0)) return false;
+      if (useC) { if (!K) { if (c) return false; } else { if (!c) return false; var x = s / c; if (x < cpc / (1 + 0.4 * tol) || x > cpc * (1 + 0.4 * tol)) return false; } }
+      if (useR) { if (!R) { if (rg) return false; } else { if (!rg) return false; var y = s / rg; if (y < reg / (1 + 0.5 * tol) || y > reg * (1 + 0.5 * tol)) return false; } }
+      return true;
+    });
+  }
+  var tries = [[1, 1, 1, 'спенд, клик, рега, депы и день жизни'], [1.6, 1, 1, 'спенд, клик, рега, депы и день жизни (чуть шире)'], [1.6, 0, 1, 'спенд, рега, депы и день жизни'], [2.2, 0, 0, 'спенд, депы и день жизни']];
+  var m = [], how = '';
+  for (var i = 0; i < tries.length; i++) { m = pick(tries[i][0], tries[i][1], tries[i][2]); how = tries[i][3]; if (m.length >= 25) break; }
+  if (m.length < 8) return { n: m.length, how: how, wdHow: wdHow };
+  var held = m.filter(function (r) { return r[15] >= 5; }), closed = m.filter(function (r) { return r[15] < 5; });
+  var gain = held.map(function (r) { return r[14] - r[12]; });
+  var lateClosed = closed.map(function (r) { return r[14]; });
+  /* среднее без 5% самых крайних с каждой стороны — чтобы один бешеный креатив не тянул всю статистику */
+  var tmean = function (a) { if (a.length < 20) return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; var b = a.slice().sort(function (x, y) { return x - y; }), k = Math.floor(b.length * 0.05); b = b.slice(k, b.length - k); return b.reduce(function (x, y) { return x + y; }, 0) / b.length; };
+  var mean = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; };
+  var win = gain.filter(function (g) { return g > 0; }).length, bigLoss = gain.filter(function (g) { return g < -100; });
+  var nextDep = held.filter(function (r) { return r[9] > 0; }), nextDepHit = nextDep.filter(function (r) { return r[10] > 0; }).length;
+  var spentAfter = held.reduce(function (x, r) { return x + r[12]; }, 0), revAfter = held.reduce(function (x, r) { return x + r[14]; }, 0);
+  function ex(r) { return { buyer: H.buyers[r[0]], name: H.names[r[1]], date: r[2], age: r[3], s: r[4], c: r[5], rg: r[6], d: r[7], ns: r[9], nd: r[10], es: r[12], ed: r[13], ev: r[14], gain: r[14] - r[12] }; }
+  function topDistinct(list, n, asc) {
+    var srt = list.slice().sort(function (a, b) { return asc ? (a[14] - a[12]) - (b[14] - b[12]) : (b[14] - b[12]) - (a[14] - a[12]); }), seen = {}, out = [];
+    if (!asc) { /* сначала лучший пример от главных ориентиров (Измаилов, Endless Dream, Иван), потом остальные */
+      var pr = srt.filter(function (r) { return FD.PRIO.indexOf(H.buyers[r[0]]) > -1; })[0];
+      if (pr) { seen[pr[0]] = 1; out.push(ex(pr)); }
+    }
+    srt.forEach(function (r) { if (out.length < n && !seen[r[0]]) { seen[r[0]] = 1; out.push(ex(r)); } });
+    return out;
+  }
+  var prioHeld = held.filter(function (r) { return FD.PRIO.indexOf(H.buyers[r[0]]) > -1; });
+  var buyersHeld = {}, buyersAll = {}; m.forEach(function (r) { buyersAll[r[0]] = 1; }); held.forEach(function (r) { buyersHeld[r[0]] = 1; });
+  return {
+    wdHow: wdHow, n: m.length, how: how, buyers: Object.keys(buyersAll).length, buyersHeld: Object.keys(buyersHeld).length,
+    held: held.length, closed: closed.length, heldPct: held.length / m.length * 100,
+    winPct: held.length ? win / held.length * 100 : 0, gainMean: tmean(gain), gainRaw: mean(gain), gainMed: FD.q(gain, 0.5),
+    lossPct: held.length ? bigLoss.length / held.length * 100 : 0, lossMean: mean(bigLoss), worst: gain.length ? Math.min.apply(null, gain) : 0,
+    roiAfter: spentAfter ? (revAfter / spentAfter - 1) * 100 : null, spentAfterMed: FD.q(held.map(function (r) { return r[12]; }), 0.5),
+    split: (function () {
+      var pos = gain.filter(function (g) { return g > 0; }), neg = gain.filter(function (g) { return g <= 0; }), big = gain.filter(function (g) { return g < -100; });
+      var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; };
+      return { n: gain.length, pos: pos.length, posAvg: avg(pos), neg: neg.length - big.length, negAvg: avg(neg.filter(function (g) { return g >= -100; })), big: big.length, bigAvg: avg(big) };
+    })(),
+    share2: (function () { var a = 0, b = 0; held.forEach(function (r) { a += r[15]; b += r[12]; }); return b ? Math.min(100, a / b * 100) : null; })(),
+    depPct: held.length ? held.filter(function (r) { return r[13] > 0; }).length / held.length * 100 : null,
+    nextDepPct: nextDep.length ? nextDepHit / nextDep.length * 100 : null, nextSpendMed: FD.q(nextDep.map(function (r) { return r[9]; }), 0.5),
+    lateClosed: tmean(lateClosed),
+    prio: prioHeld.length >= 5 ? { held: prioHeld.length, win: prioHeld.filter(function (r) { return r[14] - r[12] > 0; }).length / prioHeld.length * 100, net: prioHeld.reduce(function (x, r) { return x + r[14] - r[12]; }, 0) / prioHeld.length } : null,
+    best: topDistinct(held.filter(function (r) { return r[14] - r[12] > 0; }), 4, false),
+    worstEx: topDistinct(held.filter(function (r) { return r[14] - r[12] < 0; }), 2, true)
+  };
 };
