@@ -53,6 +53,7 @@
       <button class="tab" role="tab" data-tab="review" type="button">Повтор<span class="badge" id="dueBadge" hidden>0</span></button>
       <button class="tab" role="tab" data-tab="plan" type="button">План дня</button>
       <button class="tab" role="tab" data-tab="parse" type="button">Разбор таблиц</button>
+      <button class="tab" role="tab" data-tab="crm" type="button">CRM крео</button>
       <button class="tab" role="tab" data-tab="map" type="button">Карта штатов</button>
       <button class="tab" role="tab" data-tab="cheat" type="button">Шпаргалка</button>
     </nav>
@@ -133,6 +134,21 @@
         </div>
         <div class="row"><button class="btn ghost" id="oSay" type="button">Озвучить, куда лить</button><button class="btn ghost" id="oReset" type="button">Вернуть список со скрина</button></div>
       </div>
+    </section>
+
+    <!-- CRM КРЕО -->
+    <section class="view" id="v-crm" hidden>
+      <h2>CRM крео</h2>
+      <p class="lead">Общий учёт креативов команды: ты + topdenchick. Нейминг автоматически, статистика через импорт выгрузок или вручную. Таблица синхронизируется в реальном времени через Supabase.</p>
+      <div class="card" id="crmSetup" hidden style="background:rgba(255,176,32,.08);border-left:4px solid var(--warn);margin-top:12px">
+        <h4>Supabase не подключён</h4>
+        <p class="mut sm">Таблица работает локально в твоём браузере (localStorage). Чтобы синхронизировать креативы с topdenchick, открой <code>js/crm.js</code> и вставь в строки 8-9 свои ключи из Supabase Settings → API:</p>
+        <pre class="mono" style="font-size:12px;background:var(--night);padding:8px 10px;border-radius:8px;overflow-x:auto">var SUPA_URL = 'https://xxxxx.supabase.co';
+var SUPA_KEY = 'eyJ...';</pre>
+        <p class="mut sm">Таблицу создаст SQL из файла <code>supabase.sql</code> (запусти через SQL Editor в дашборде или через MCP).</p>
+      </div>
+      <div class="card" style="margin-top:16px"><h3>Добавить креатив</h3><div id="crmForm"></div></div>
+      <div class="card" style="margin-top:16px"><h3>Все креативы</h3><div id="crmList"></div></div>
     </section>
 
     <!-- КАРТА -->
@@ -218,6 +234,7 @@
 <div id="xpPop" aria-hidden="true"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
 <script src="js/data.js"></script>
 <script src="js/course.js"></script>
 <script src="js/fedot.js"></script>
@@ -226,6 +243,7 @@
 <script src="js/statesm.js"></script>
 <script src="js/analyzer.js"></script>
 <script src="js/quick.js"></script>
+<script src="js/crm.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

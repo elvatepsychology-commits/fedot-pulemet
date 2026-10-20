@@ -41,6 +41,7 @@
     if (tab === 'review') renderReview();
     if (tab === 'map') renderMap();
     if (tab === 'plan') renderPlanForm();
+    if (tab === 'crm') { $('#crmSetup').hidden = FD.CRM.hasSupa(); FD.CRM.renderForm($('#crmForm')); FD.CRM.renderList($('#crmList'), {}); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 

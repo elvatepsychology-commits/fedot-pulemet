@@ -385,3 +385,9 @@ body.speaking .hdr-stop{display:inline-flex}
 #stTable th[data-sk]:hover{color:var(--acc)}
 #stTable tr[data-st]{cursor:pointer}#stTable tr.dim td{opacity:.55}
 #stTableCard{margin-top:14px}
+
+/* CRM крео */
+.crm-form{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:760px){.crm-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.crm-form .btn{grid-column:1 / -1}
+.empty{text-align:center;display:grid;gap:12px;justify-items:center;padding:30px;background:var(--panel);border:1px solid var(--line);border-radius:20px}
