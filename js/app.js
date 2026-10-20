@@ -33,6 +33,7 @@
   }
 
   /* ---------- вкладки ---------- */
+  var crmUnsub = null;
   function show(tab) {
     $$('.tab').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'); });
     $$('.view').forEach(function (v) { v.hidden = v.id !== 'v-' + tab; });
@@ -41,7 +42,48 @@
     if (tab === 'review') renderReview();
     if (tab === 'map') renderMap();
     if (tab === 'plan') renderPlanForm();
-    if (tab === 'crm') { $('#crmSetup').hidden = FD.CRM.hasSupa(); FD.CRM.renderForm($('#crmForm')); FD.CRM.renderList($('#crmList'), {}); }
+    if (tab === 'crm') {
+      $('#crmSetup').hidden = FD.CRM.hasSupa();
+      FD.CRM.renderForm($('#crmForm'));
+      FD.CRM.renderList($('#crmList'), {});
+
+      // инициализация фильтров
+      var filterBuyerEl = $('#crmFilterBuyer');
+      var searchEl = $('#crmSearch');
+      if (filterBuyerEl) {
+        filterBuyerEl.innerHTML = FD.CRM.cfg.buyers.map(function (b) {
+          return '<button type="button" class="chip" data-buyer="' + b.id + '">' + b.nick + '</button>';
+        }).join('');
+        filterBuyerEl.querySelectorAll('.chip').forEach(function (btn) {
+          btn.onclick = function (e) {
+            e.preventDefault();
+            btn.classList.toggle('on');
+            updateCrmList();
+          };
+        });
+      }
+
+      // поиск по названию
+      if (searchEl) {
+        searchEl.oninput = updateCrmList;
+      }
+
+      // realtime-подписка на изменения
+      if (crmUnsub) crmUnsub();
+      crmUnsub = FD.CRM.onChange(function (payload) {
+        console.log('CRM realtime update:', payload);
+        updateCrmList();
+      });
+
+      function updateCrmList() {
+        var selectedBuyers = Array.from(filterBuyerEl.querySelectorAll('.chip.on')).map(function (b) { return b.dataset.buyer; });
+        var search = searchEl ? searchEl.value : '';
+        FD.CRM.renderList($('#crmList'), {
+          buyer: selectedBuyers.length === 1 ? selectedBuyers[0] : (selectedBuyers.length > 1 ? 'multi:' + selectedBuyers.join(',') : null),
+          search: search
+        });
+      }
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 

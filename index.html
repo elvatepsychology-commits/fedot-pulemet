@@ -139,13 +139,15 @@
     <!-- CRM КРЕО -->
     <section class="view" id="v-crm" hidden>
       <h2>CRM крео</h2>
-      <p class="lead">Общий учёт креативов команды: ты + topdenchick. Нейминг автоматически, статистика через импорт выгрузок или вручную. Таблица синхронизируется в реальном времени через Supabase.</p>
+      <p class="lead">Общий учёт креативов команды: ты + topdenchick. Нейминг автоматически, статистика по дням, ROI/CPD, статусы. Таблица синхронизируется в реальном времени через Supabase.</p>
       <div class="card" id="crmSetup" hidden style="background:rgba(255,176,32,.08);border-left:4px solid var(--warn);margin-top:12px">
         <h4>Supabase не подключён</h4>
-        <p class="mut sm">Таблица работает локально в твоём браузере (localStorage). Чтобы синхронизировать креативы с topdenchick, открой <code>js/crm.js</code> и вставь в строки 8-9 свои ключи из Supabase Settings → API:</p>
-        <pre class="mono" style="font-size:12px;background:var(--night);padding:8px 10px;border-radius:8px;overflow-x:auto">var SUPA_URL = 'https://xxxxx.supabase.co';
-var SUPA_KEY = 'eyJ...';</pre>
-        <p class="mut sm">Таблицу создаст SQL из файла <code>supabase.sql</code> (запусти через SQL Editor в дашборде или через MCP).</p>
+        <p class="mut sm">Таблица работает локально в твоём браузере (localStorage). Чтобы синхронизировать креативы с topdenchick, открой <code>js/crm.js</code> и проверь ключи Supabase.</p>
+      </div>
+      <div id="crmMetrics"></div>
+      <div class="crm-filter">
+        <input type="text" id="crmSearch" placeholder="Поиск по нейменингу или названию кампании...">
+        <div class="chips" id="crmFilterBuyer"></div>
       </div>
       <div class="card" style="margin-top:16px"><h3>Добавить креатив</h3><div id="crmForm"></div></div>
       <div class="card" style="margin-top:16px"><h3>Все креативы</h3><div id="crmList"></div></div>

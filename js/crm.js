@@ -6,8 +6,6 @@ FD.CRM = {};
 
 (function (C) {
   /* ---------- конфиг Supabase ---------- */
-  /* Вставь свои значения после создания проекта на supabase.com → Settings → API.
-     Таблицу создаёт SQL из supabase.sql (лежит рядом в репозитории). */
   var SUPA_URL = 'https://nugdmbjstwvpogsloqoq.supabase.co';
   var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51Z2RtYmpzdHd2cG9nc2xvcW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0OTAyNjIsImV4cCI6MjEwODA2NjI2Mn0.8-vl3ffkHLwWJds5Rtb5FdHrBxLKrZk9cUgWNmEAjxs';
   C.hasSupa = function () { return !!(SUPA_URL && SUPA_KEY); };
@@ -16,7 +14,6 @@ FD.CRM = {};
   var LCFG = 'fedot.crm.cfg.v1';
   var LME = 'fedot.crm.me.v1';
 
-  /* ---------- справочники по умолчанию (команда сама меняет нейминг-слова через «+») ---------- */
   var DEF_CFG = {
     buyers: [
       { id: '209', nick: 'madboutthatt1' },
@@ -51,23 +48,20 @@ FD.CRM = {};
   C.cfg = loadCfg();
   C.saveCfg = function () { try { localStorage.setItem(LCFG, JSON.stringify(C.cfg)); } catch (e) {} };
 
-  /* кто сейчас работает (чтобы подставлять «мой байер» и подписывать карточки) */
   C.me = (function () { try { return JSON.parse(localStorage.getItem(LME) || 'null'); } catch (e) { return null; } })();
   C.setMe = function (buyerId) { C.me = buyerId; try { localStorage.setItem(LME, JSON.stringify(buyerId)); } catch (e) {} };
 
-  /* ---------- хранилище креативов: Supabase если настроен, иначе localStorage ---------- */
   function localAll() { try { return JSON.parse(localStorage.getItem(LKEY) || '[]'); } catch (e) { return []; } }
   function localSave(list) { try { localStorage.setItem(LKEY, JSON.stringify(list)); } catch (e) {} }
 
   var sb = null;
   function supa() {
     if (sb || !C.hasSupa()) return sb;
-    if (!window.supabase) return null; // библиотека ещё не загрузилась
+    if (!window.supabase) return null;
     sb = window.supabase.createClient(SUPA_URL, SUPA_KEY);
     return sb;
   }
 
-  /* список креативов: возвращает Promise<array> */
   C.list = function () {
     var cl = supa();
     if (!cl) return Promise.resolve(localAll());
@@ -102,7 +96,6 @@ FD.CRM = {};
     return cl.from('creatives').delete().eq('id', id).then(function (r) { if (r.error) throw r.error; });
   };
 
-  /* realtime-подписка на изменения (общая таблица обновляется у обоих байеров сразу) */
   C.onChange = function (cb) {
     var cl = supa();
     if (!cl) return function () {};
@@ -113,7 +106,6 @@ FD.CRM = {};
   };
 
   /* ---------- нейминг ---------- */
-  /* строка: EN-MGM-209-209-STORY-920-ID-OFF-CDC-001 */
   C.buildName = function (f) {
     var parts = [f.lang, f.team, f.buyerOwn, f.buyerLink || f.buyerOwn, f.format];
     if (f.script) parts.push(f.script);
@@ -123,7 +115,6 @@ FD.CRM = {};
     return parts.join('-');
   };
 
-  /* следующий номер крео: один счётчик на пару «скрипт + формат» (или «байер залива + формат», если скрипта нет) */
   C.nextNum = function (list, f) {
     var key = f.script ? ('s:' + f.script + ':' + f.format) : ('b:' + f.buyerOwn + ':' + f.format);
     var max = 0;
@@ -137,7 +128,6 @@ FD.CRM = {};
     return max + 1;
   };
 
-  /* разбор строки нейминга обратно в поля (переиспользует FD.parseCreative, где возможно, плюс буйеров) */
   C.parseName = function (name) {
     var n = String(name || '').trim();
     var m = n.match(/^([A-Z]{2})-([A-Z0-9]+)-(\d+)-(\d+)-([A-Z]+)-(?:([0-9A-Za-z]+)-)?([A-Za-z]{2})-([A-Za-z]+)-([A-Za-z0-9]+)-(\d+)$/);
@@ -149,7 +139,6 @@ FD.CRM = {};
     };
   };
 
-  /* человекочитаемое описание скрипта: «#920 · Mom's Jackpot · байер 176» */
   C.scriptLabel = function (num) {
     if (!num) return '';
     var s = C.cfg.scripts.filter(function (x) { return x.num === String(num); })[0];
@@ -161,13 +150,10 @@ FD.CRM = {};
   C.brandName = function (id) { var b = C.cfg.brands.filter(function (x) { return x.id === id; })[0]; return b ? b.name : id; };
   C.formatName = function (id) { var f = C.cfg.formats.filter(function (x) { return x.id === id; })[0]; return f ? f.name : id; };
 
-  /* ---------- статистика по креативу ---------- */
-  /* метрики хранятся как массив записей по датам: [{date:'2026-10-20', spend, clicks, regs, deps, revenue}]
-     агрегат считает сумму + ROI + цену депа, так же как FD.analyze в analyzer.js */
   C.totals = function (stats) {
     var t = { spend: 0, clicks: 0, regs: 0, deps: 0, revenue: 0 };
     (stats || []).forEach(function (s) {
-      t.spend += +s.spend || 0; t.clicks += +s.clicks || 0; t.regs += +s.regs || 0; t.deps += +s.deps || 0; t.revenue += (+s.revenue || 0) || ((+s.deps || 0) * FD.PAYOUT);
+      t.spend += +s.spend || 0; t.clicks += +s.clicks || 0; t.regs += +s.regs || 0; t.deps += +s.deps || 0; t.revenue += (+s.revenue || 0) || ((+s.deps || 0) * (FD.PAYOUT || 70));
     });
     t.roi = t.spend ? (t.revenue / t.spend - 1) * 100 : 0;
     t.cpc = t.clicks ? t.spend / t.clicks : null;
@@ -176,16 +162,49 @@ FD.CRM = {};
     return t;
   };
 
-  /* ---------- UI ---------- */
+  /* ---------- UI: метрики, фильтр, таблица, модалка ---------- */
+  C.renderMetrics = function (el, list) {
+    var total = 0, totalSpend = 0, totalRoi = 0, testCount = 0;
+    list.forEach(function (r) {
+      var t = C.totals(r.stats);
+      total++;
+      totalSpend += t.spend;
+      totalRoi += t.roi;
+      if (r.status === 'test') testCount++;
+    });
+    var avgRoi = total > 0 ? totalRoi / total : 0;
+    var h = '<div class="crm-metrics">';
+    h += '<div class="crm-metric"><b>' + total + '</b><span>Всего крео</span></div>';
+    h += '<div class="crm-metric"><b>$' + Math.round(totalSpend) + '</b><span>Общий спенд</span></div>';
+    h += '<div class="crm-metric" style="border-left-color:' + (avgRoi > 0 ? 'var(--good)' : avgRoi < 0 ? 'var(--kill)' : 'var(--muted)') + '"><b>' + (total ? (avgRoi > 0 ? '+' : '') + Math.round(avgRoi) + '%' : '—') + '</b><span>Ср. ROI</span></div>';
+    h += '<div class="crm-metric" style="border-left-color:var(--warn)"><b>' + testCount + '</b><span>В тесте</span></div>';
+    h += '</div>';
+    el.innerHTML = h;
+  };
+
   C.renderList = function (el, opts) {
     opts = opts || {};
     C.list().then(function (list) {
-      if (opts.buyer) list = list.filter(function (r) { return r.buyer_own === opts.buyer; });
-      if (!list.length) { el.innerHTML = '<div class="empty"><span class="fedot" style="width:70px"></span><p class="mut">Пока нет ни одного креатива. Добавь первый.</p></div>'; return; }
-      var h = '<div class="tbl"><table class="t"><thead><tr><th>Нейминг</th><th>Байер</th><th>Скрипт</th><th>Штат</th><th>Залито</th><th class="n">Спенд</th><th class="n">Депы</th><th class="n">ROI</th><th>Статус</th></tr></thead><tbody>';
-      list.forEach(function (r) {
+      var search = (opts.search || '').toLowerCase();
+      var buyer = opts.buyer;
+      var filtered = list.filter(function (r) {
+        if (buyer && r.buyer_own !== buyer) return false;
+        if (search && !r.name.toLowerCase().includes(search) && !(r.camp_name && r.camp_name.toLowerCase().includes(search))) return false;
+        return true;
+      });
+
+      C.renderMetrics(document.querySelector('#crmMetrics'), list);
+
+      if (!filtered.length) {
+        el.innerHTML = '<div class="empty"><span class="fedot" style="width:70px"></span><p class="mut">Пока нет креативов в выборке. Добавь первый или измени фильтр.</p></div>';
+        return;
+      }
+
+      var h = '<div class="crm-table"><table class="t"><thead><tr><th>Нейминг</th><th>Байер</th><th>Скрипт</th><th>Штат</th><th>Залито</th><th class="n">Спенд</th><th class="n">Депы</th><th class="n">ROI</th><th>Статус</th></tr></thead><tbody>';
+      filtered.forEach(function (r) {
         var t = C.totals(r.stats), p = C.parseName(r.name);
-        h += '<tr data-id="' + r.id + '">';
+        var statusColor = r.status === 'dup' ? 'acc' : r.status === 'kill' ? 'kill' : r.status === 'hold' ? 'good' : '';
+        h += '<tr data-id="' + r.id + '" style="cursor:pointer">';
         h += '<td><b>' + (r.name || '—') + '</b>' + (r.camp_name ? '<div class="sm mut">' + r.camp_name + '</div>' : '') + '</td>';
         h += '<td>' + C.buyerNick(r.buyer_own) + (r.buyer_link && r.buyer_link !== r.buyer_own ? ' → ' + C.buyerNick(r.buyer_link) : '') + '</td>';
         h += '<td>' + (p && p.script ? C.scriptLabel(p.script) : '—') + '</td>';
@@ -194,18 +213,137 @@ FD.CRM = {};
         h += '<td class="n">' + (t.spend ? '$' + Math.round(t.spend) : '—') + '</td>';
         h += '<td class="n">' + (t.deps || '—') + '</td>';
         h += '<td class="n ' + (t.roi > 0 ? 'good' : t.roi < 0 ? 'bad' : '') + '">' + (t.spend ? (t.roi > 0 ? '+' : '') + Math.round(t.roi) + '%' : '—') + '</td>';
-        h += '<td><span class="pill ' + (r.status === 'dup' ? 'acc' : r.status === 'kill' ? 'kill' : r.status === 'hold' ? 'good' : '') + '">' + (r.status || 'test') + '</span></td>';
+        h += '<td><span class="pill ' + statusColor + '" data-id="' + r.id + '" data-status="' + (r.status || 'test') + '">' + (r.status || 'test') + '</span></td>';
         h += '</tr>';
       });
       h += '</tbody></table></div>';
       el.innerHTML = h;
-      el.querySelectorAll('tr[data-id]').forEach(function (tr) { tr.style.cursor = 'pointer'; tr.onclick = function () { C.editModal(tr.dataset.id); }; });
+
+      el.querySelectorAll('tr[data-id]').forEach(function (tr) {
+        tr.onclick = function () { C.editModal(tr.dataset.id); };
+      });
+
+      el.querySelectorAll('.pill[data-id]').forEach(function (pill) {
+        pill.onclick = function (e) { e.stopPropagation(); C.changeStatus(pill.dataset.id, pill.dataset.status); };
+      });
     }).catch(function (e) { el.innerHTML = '<p class="bad">Ошибка загрузки: ' + e.message + '</p>'; });
   };
 
+  C.changeStatus = function (id, currentStatus) {
+    var statuses = ['test', 'hold', 'dup', 'cut', 'kill', 'wait'];
+    var idx = statuses.indexOf(currentStatus);
+    var next = statuses[(idx + 1) % statuses.length];
+    C.list().then(function (list) {
+      var r = list.find(function (x) { return x.id === id; });
+      if (!r) return;
+      r.status = next;
+      return C.upsert(r);
+    }).then(function () {
+      C.renderList(document.querySelector('#crmList'), {});
+    }).catch(function (e) { alert('Ошибка: ' + e.message); });
+  };
+
   C.editModal = function (id) {
-    /* placeholder — откроет модальное окно для редактирования креатива (stats, статус, заметка) */
-    alert('Редактирование креатива ' + id + ' — сделаем далее');
+    C.list().then(function (list) {
+      var r = list.find(function (x) { return x.id === id; });
+      if (!r) { alert('Креатив не найден'); return; }
+      var h = '<div class="modal-overlay" id="crmModal">';
+      h += '<div class="modal-card">';
+      h += '<button type="button" class="modal-close" aria-label="Закрыть">✕</button>';
+      h += '<h3>' + r.name + '</h3>';
+      h += '<div class="modal-section">';
+      h += '<h4>Основное</h4>';
+      h += '<div class="modal-row"><label>Статус</label><select id="crmEditStatus">';
+      ['test', 'hold', 'dup', 'cut', 'kill', 'wait'].forEach(function (s) {
+        h += '<option value="' + s + '"' + (r.status === s ? ' selected' : '') + '>' + s + '</option>';
+      });
+      h += '</select></div>';
+      h += '<div class="modal-row"><label>Заметка</label><textarea id="crmEditNote" placeholder="Твоя заметка по креативу...">' + (r.note || '') + '</textarea></div>';
+      h += '</div>';
+
+      h += '<div class="modal-section">';
+      h += '<h4>Статистика по датам</h4>';
+      h += '<div class="crm-stats-list" id="crmStatsList">';
+      (r.stats || []).forEach(function (s, i) {
+        h += '<div class="crm-stat-row">';
+        h += '<input type="date" value="' + (s.date || '') + '" readonly>';
+        h += '<div class="vals">';
+        h += '<input type="number" placeholder="$spend" value="' + (s.spend || '') + '" data-key="spend" class="crm-stat-input">';
+        h += '<input type="number" placeholder="clicks" value="' + (s.clicks || '') + '" data-key="clicks" class="crm-stat-input">';
+        h += '<input type="number" placeholder="regs" value="' + (s.regs || '') + '" data-key="regs" class="crm-stat-input">';
+        h += '<input type="number" placeholder="deps" value="' + (s.deps || '') + '" data-key="deps" class="crm-stat-input">';
+        h += '<input type="number" placeholder="revenue" value="' + (s.revenue || '') + '" data-key="revenue" class="crm-stat-input">';
+        h += '</div>';
+        h += '<div class="btns"><button type="button" class="crm-del-stat" data-idx="' + i + '">✕</button></div>';
+        h += '</div>';
+      });
+      h += '</div>';
+      h += '<div class="crm-stat-add"><button type="button" id="crmAddStat">+ Добавить день</button></div>';
+      h += '</div>';
+
+      h += '<div class="modal-footer">';
+      h += '<button type="button" class="btn ghost" id="crmDeleteCreative">Удалить</button>';
+      h += '<button type="button" class="btn ghost" onclick="document.querySelector(\'#crmModal\').remove()">Отменить</button>';
+      h += '<button type="button" class="btn" id="crmSaveEdit">Сохранить</button>';
+      h += '</div>';
+      h += '</div></div>';
+
+      document.body.insertAdjacentHTML('beforeend', h);
+      var modal = document.querySelector('#crmModal');
+
+      modal.querySelector('.modal-close').onclick = function () { modal.remove(); };
+      modal.querySelector('#crmDeleteCreative').onclick = function () {
+        if (!confirm('Удалить креатив ' + r.name + '?')) return;
+        C.remove(id).then(function () {
+          FD.say && FD.say('Креатив удалён: ' + r.name, { mood: 'happy' });
+          modal.remove();
+          C.renderList(document.querySelector('#crmList'), {});
+        }).catch(function (e) { alert('Ошибка удаления: ' + e.message); });
+      };
+
+      modal.querySelector('#crmAddStat').onclick = function () {
+        var today = new Date().toISOString().split('T')[0];
+        if (!r.stats) r.stats = [];
+        r.stats.push({ date: today, spend: 0, clicks: 0, regs: 0, deps: 0, revenue: 0 });
+        C.editModal(id); // перемонтировать модалку
+        if (modal) modal.remove();
+      };
+
+      modal.querySelectorAll('.crm-del-stat').forEach(function (btn) {
+        btn.onclick = function () {
+          var idx = +btn.dataset.idx;
+          r.stats.splice(idx, 1);
+          C.editModal(id);
+          if (modal) modal.remove();
+        };
+      });
+
+      modal.querySelector('#crmSaveEdit').onclick = function () {
+        r.status = modal.querySelector('#crmEditStatus').value;
+        r.note = modal.querySelector('#crmEditNote').value;
+        var stats = [];
+        modal.querySelectorAll('.crm-stat-row').forEach(function (row, i) {
+          var date = row.querySelector('input[type=date]').value;
+          if (!date) return;
+          var s = { date: date, spend: 0, clicks: 0, regs: 0, deps: 0, revenue: 0 };
+          row.querySelectorAll('.crm-stat-input').forEach(function (inp) {
+            s[inp.dataset.key] = +inp.value || 0;
+          });
+          stats.push(s);
+        });
+        r.stats = stats;
+        C.upsert(r).then(function () {
+          FD.say && FD.say('Креатив сохранён: ' + r.name, { mood: 'happy' });
+          modal.remove();
+          C.renderList(document.querySelector('#crmList'), {});
+        }).catch(function (e) { alert('Ошибка: ' + e.message); });
+      };
+
+      // закрыть клик за границей модалки
+      modal.querySelector('.modal-overlay').onclick = function (e) {
+        if (e.target === modal.querySelector('.modal-overlay')) { modal.remove(); }
+      };
+    });
   };
 
   C.renderForm = function (el) {
