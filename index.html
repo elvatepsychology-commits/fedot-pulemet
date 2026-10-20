@@ -53,7 +53,8 @@
       <button class="tab" role="tab" data-tab="review" type="button">Повтор<span class="badge" id="dueBadge" hidden>0</span></button>
       <button class="tab" role="tab" data-tab="plan" type="button">План дня</button>
       <button class="tab" role="tab" data-tab="parse" type="button">Разбор таблиц</button>
-      <button class="tab" role="tab" data-tab="crm" type="button">CRM крео</button>
+      <button class="tab" role="tab" data-tab="creatives" type="button">Креативы</button>
+      <button class="tab" role="tab" data-tab="crm" type="button">CRM</button>
       <button class="tab" role="tab" data-tab="map" type="button">Карта штатов</button>
       <button class="tab" role="tab" data-tab="cheat" type="button">Шпаргалка</button>
     </nav>
@@ -136,21 +137,41 @@
       </div>
     </section>
 
+    <!-- КРЕАТИВЫ -->
+    <section class="view" id="v-creatives" hidden>
+      <h2>Креативы</h2>
+      <p class="lead">Заполняй мета-данные креативов: нейминг для FB, штат, казино, скрипт. Загружай файлы. Статистика подтянется автоматически из CRM после загрузки CSV.</p>
+      <div id="creativesMetrics"></div>
+      <div class="crm-filter">
+        <input type="text" id="creativesSearch" placeholder="Поиск по названию или нейминг...">
+        <div class="chips" id="creativesFilterBuyer"></div>
+      </div>
+      <div class="card" style="margin-top:16px"><h3>Добавить креатив</h3><div id="creativesForm"></div></div>
+      <div class="card" style="margin-top:16px"><h3>Все креативы</h3><div id="creativesList"></div></div>
+    </section>
+
     <!-- CRM КРЕО -->
     <section class="view" id="v-crm" hidden>
-      <h2>CRM крео</h2>
-      <p class="lead">Общий учёт креативов команды: ты + topdenchick. Нейминг автоматически, статистика по дням, ROI/CPD, статусы. Таблица синхронизируется в реальном времени через Supabase.</p>
+      <h2>CRM</h2>
+      <p class="lead">Статистика по креативам: загружай CSV из Facebook, система парсит и считает ROI/CPD. Управляй статусами, веди историю по дням.</p>
       <div class="card" id="crmSetup" hidden style="background:rgba(255,176,32,.08);border-left:4px solid var(--warn);margin-top:12px">
         <h4>Supabase не подключён</h4>
         <p class="mut sm">Таблица работает локально в твоём браузере (localStorage). Чтобы синхронизировать креативы с topdenchick, открой <code>js/crm.js</code> и проверь ключи Supabase.</p>
       </div>
+      <div class="card" style="margin-top:16px">
+        <h3>Загрузить статистику из Facebook</h3>
+        <p class="mut sm">Экспортируй отчёт по объявлениям из Ads Manager (CSV), кинь сюда — система распарсит и добавит статистику к креативам.</p>
+        <div class="drop" id="crmDropZone">
+          <p>📊 Перетащи CSV-файл сюда или</p>
+          <div class="fileb"><button class="btn sm">Выбрать файл</button><input type="file" id="crmFileInput" accept=".csv,.xlsx"></div>
+        </div>
+      </div>
       <div id="crmMetrics"></div>
       <div class="crm-filter">
-        <input type="text" id="crmSearch" placeholder="Поиск по нейменингу или названию кампании...">
+        <input type="text" id="crmSearch" placeholder="Поиск по нейминг или названию кампании...">
         <div class="chips" id="crmFilterBuyer"></div>
       </div>
-      <div class="card" style="margin-top:16px"><h3>Добавить креатив</h3><div id="crmForm"></div></div>
-      <div class="card" style="margin-top:16px"><h3>Все креативы</h3><div id="crmList"></div></div>
+      <div class="card" style="margin-top:16px"><h3>Статистика по креативам</h3><div id="crmList"></div></div>
     </section>
 
     <!-- КАРТА -->
