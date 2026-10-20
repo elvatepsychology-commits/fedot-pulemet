@@ -91,7 +91,7 @@
         <label for="pWake">Встаю<input id="pWake" type="time"></label>
         <label for="pHours">Свободных часов<input id="pHours" type="number" min="1" max="20" step="0.5"></label>
         <label for="pLimit">Можно потратить за день, $<input id="pLimit" type="number" min="50" step="50"></label>
-        <label for="pScheme">Схема<select id="pScheme"><option value="3-5-1">3-5-1 (3 копии)</option><option value="1-5-1">1-5-1</option><option value="1-1-1">1-1-1</option></select></label>
+        <label for="pScheme">Схема<select id="pScheme"><option value="1-1-1">1-1-1 (твоя)</option><option value="3-5-1">3-5-1 (3 копии)</option><option value="1-5-1">1-5-1</option></select></label>
         <label for="pAccOld">Прогретых РК<input id="pAccOld" type="number" min="0" step="1"></label>
         <label for="pAccNew">Новых РК<input id="pAccNew" type="number" min="0" step="1"></label>
         <label for="pCapOld">Новых кампаний в день на прогретый РК<input id="pCapOld" type="number" min="1" step="1"></label>
@@ -139,9 +139,11 @@
     <section class="view" id="v-map" hidden>
       <h2>Карта штатов</h2>
       <p class="lead">Цвет = куда лить сейчас. Посчитано по всей команде (50 баеров, сентябрь + 1–18 октября), главный вес у 10–18 октября. Ткни в штат.</p>
-      <div class="legend"><span><i style="background:var(--good)"></i>Лить первым</span><span><i style="background:var(--acc)"></i>Тестить срочно</span><span><i style="background:var(--warn)"></i>Можно, следи</span><span><i style="background:var(--kill)"></i>Осторожно</span><span><i style="background:var(--panel2)"></i>Нет данных</span></div>
+      <div class="legend" id="mapLegend"><span><i style="background:var(--good)"></i>Лить первым</span><span><i style="background:var(--acc)"></i>Тестить срочно</span><span><i style="background:var(--warn)"></i>Можно, следи</span><span><i style="background:var(--kill)"></i>Осторожно</span><span><i style="background:var(--panel2)"></i>Нет данных</span></div>
+      <div class="card mapctl" id="mapCtl"></div>
       <div class="usmap" id="usmap"></div>
       <div class="info" id="stateInfo"><p class="mut">Ткни в любой штат на карте.</p></div>
+      <div class="card" id="stTableCard" hidden><h3>Штаты за выбранные месяцы</h3><p class="mut sm">Ткни в заголовок колонки — отсортирую. Вся команда, только США. Штат определяю по названию креатива или кампании (так находится ~84% спенда).</p><div class="tbl"><table class="t sortable" id="stTable"></table></div></div>
       <div class="two">
         <div class="card"><h3>Казино по штатам</h3><p class="mut sm">Код из названия креатива. ROI всей команды за 10–18 октября. Ткни штат на карте — покажу его казино отдельно.</p><div id="casinoList"></div></div>
         <div class="card"><h3>Истории, которые тянут</h3><div class="tbl"><table style="min-width:0"><thead><tr><th>История</th><th>Чья</th><th>Итог</th></tr></thead><tbody id="storyList"></tbody></table></div>
@@ -170,6 +172,7 @@
           <label for="cK">Клики<input id="cK" type="number" value="11" min="0"></label>
           <label for="cR">Реги<input id="cR" type="number" value="2" min="0"></label>
           <label for="cD">Депы<input id="cD" type="number" value="0" min="0"></label>
+          <label for="cI">Инсталлы <small class="mut">из Power BI, можно пусто</small><input id="cI" type="number" min="0" placeholder="—"></label>
           <label for="cDate">Дата<input id="cDate" type="date"></label>
           <label for="cTime">Время (Москва/Минск)<select id="cTime"></select></label>
           <label for="cA">День жизни <small class="mut">1 = залил сегодня</small><input id="cA" type="number" value="1" min="1"></label>
@@ -187,7 +190,7 @@
           <tr><td>Цена депа</td><td>до $80</td><td>$80–110</td><td>$110–150</td><td>$150+</td></tr></table>
           <p class="mut sm">Деп ≈ клик × 19 ≈ рега × 5. Выплата ~$158.</p></div>
         <div class="card"><h3>Бюджеты</h3><table class="t">
-          <tr><td>Тест 3-5-1</td><td><b>$100</b> на копию = $300 на креатив</td></tr>
+          <tr><td>Тест 1-1-1 (твоя)</td><td><b>$150</b> на кампанию, CBO, точка на казино + 35 миль</td></tr>
           <tr><td>1-3-1 как Измаилов</td><td>$50–100 на группу</td></tr>
           <tr><td>Победитель (деп ≤ $110)</td><td>Оригинал не трогать. 3 новые копии по <b>$200–300</b> + соседние штаты</td></tr>
           <tr><td>Реально уйдёт</td><td>~$50 на креатив в день</td></tr></table></div>
@@ -220,6 +223,7 @@
 <script src="js/fedot.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/history.js"></script>
+<script src="js/statesm.js"></script>
 <script src="js/analyzer.js"></script>
 <script src="js/quick.js"></script>
 <script src="js/app.js"></script>

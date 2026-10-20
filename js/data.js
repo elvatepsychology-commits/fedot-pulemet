@@ -16,7 +16,7 @@ FD.BENCH = {
          drop: [35, 52, 65], hit: [12, 27, 67, 85, 100], struct: '1-5-1' },
   me:  { name: 'Ты', when: '13–18 окт', roi: 75, dep: 90, ctr: 2.5, cpc: 4.96, reg: 18.8,
          peakNewCamps: 17, peakLive: 17, peakSpend: 531, newCrDay: 7, peakNewCr: 9,
-         drop: [14, 25, 38], hit: [0, 14, 100, 100, null], struct: '3-5-1 / 1-1-1' }
+         drop: [14, 25, 38], hit: [0, 14, 100, 100, null], struct: '1-1-1 CBO' }
 };
 FD.BUCKETS = [[10, 30], [30, 80], [80, 160], [160, 400], [400, 1e9]];
 FD.BUCKET_LABELS = ['$10–30', '$30–80', '$80–160', '$160–400', '$400+'];

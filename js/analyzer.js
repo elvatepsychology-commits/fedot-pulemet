@@ -69,15 +69,16 @@ FD.detect = function (rows) {
     var row = (rows[i] || []).map(function (c) { return c == null ? '' : String(c).trim(); });
     if (row.indexOf('fb_campaign_name') > -1 || row.indexOf('fb_ad_name') > -1) {
       var col = {}; row.forEach(function (c, j) { if (c) col[c] = j; });
-      return { hi: i, col: col, type: col.fb_campaign_name != null ? 'campaign' : 'creative' };
+      return { hi: i, col: col, type: col.fb_campaign_name != null ? 'campaign' : 'creative', hasInst: col.installs != null };
     }
   }
   return null;
 };
 
 /* решение по креативу (сумма копий) */
-FD.decide = function (S, K, R, D, age) {
-  age = age || 1;
+FD.decide = function (S, K, R, D, age, I) {
+  age = age || 1; if (I === undefined || I === '' || (I != null && !isFinite(I))) I = null;
+  var inst = I != null && I > 0 ? S / I : null, instTxt = I == null ? '' : (I > 0 ? ' Инсталл $' + inst.toFixed(1) + '.' : ' Инсталлов 0.');
   var cpc = K ? S / K : null, reg = R ? S / R : null, dep = D ? S / D : null;
   var est = dep != null ? dep : reg != null ? reg * 5 : cpc != null ? cpc * 19 : null;
   function v(code, label, cls, why) { return { code: code, label: label, cls: cls, why: why, cpc: cpc, reg: reg, dep: dep, est: est }; }
@@ -94,12 +95,14 @@ FD.decide = function (S, K, R, D, age) {
   if (S >= 160) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', '$' + Math.round(S) + ' без депа — выплата сожжена.');
   if (S < 80) {
     if (cpc == null || cpc > 8) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', 'Клик ' + (cpc == null ? 'не было' : '$' + cpc.toFixed(2)) + ' — деп выйдет $150+.');
-    if (R === 0 && S >= 60) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', '$' + Math.round(S) + ' и ни одной реги.');
-    return v('keep', 'ДЕРЖИ, НЕ ДУБЛИРУЙ', 'good', 'Клик $' + cpc.toFixed(2) + ', прогноз депа ~$' + Math.round(est) + '. Смотри снова на $80.');
+    if (S >= 40 && cpc > 5) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', '$' + Math.round(S) + ' без депа, а клик $' + cpc.toFixed(2) + ' — дороже $5. Правило Вани: без нормальных метрик на тест креатива не больше $30–40. У пацанов такие на $30–45 выходили в плюс ~1 из 4.');
+    if (S >= 40 && I != null && (I === 0 || inst > 8)) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', '$' + Math.round(S) + ' без депа, а ' + (I === 0 ? 'инсталлов ноль' : 'инсталл $' + inst.toFixed(1) + ' — дороже $8') + '. Правило Вани. У команды с инсталлом до $8 в плюс выходили 57% креативов, дороже — около трети.');
+    if (R <= 1 && S >= 60) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', '$' + Math.round(S) + (R ? ' и всего 1 рега — она стоит $' + Math.round(S) + ', а к $80 нужно 3 реги по $25.' : ' и ни одной реги.') + ' Клик нормальный, но люди кликают и не регаются — не цепляет. У пацанов на $60–80 с одной регой в плюс выходил 1 из 5.');
+    return v('keep', 'ДЕРЖИ, НЕ ДУБЛИРУЙ', 'good', 'Клик $' + cpc.toFixed(2) + ', прогноз депа ~$' + Math.round(est) + '.' + instTxt + (S < 40 ? ' На $40 проверка: клик до $5' + (I != null ? ' и инсталл до $8' : '') + ', иначе выкл.' : ' Смотри снова на $80.'));
   }
-  if (reg == null || reg >= 32) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', 'Рега ' + (reg == null ? 'нет' : '$' + reg.toFixed(1)) + ' — деп будет дороже выплаты.');
-  if (R >= 3 && reg <= 25) return v('keep', 'ДЕРЖИ ДО $160, НЕ ДУБЛИРУЙ', 'warn', 'Рега $' + reg.toFixed(1) + ', прогноз депа ~$' + Math.round(reg * 5) + '. Деп может доехать.');
-  return v('keep', 'ДЕРЖИ ДО $120, НЕ ДУБЛИРУЙ', 'warn', 'Рег мало или дороговаты. Нет депа к $120 — выкл.');
+  if (I != null && (I === 0 || inst > 8)) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', '$' + Math.round(S) + ' без депа, а ' + (I === 0 ? 'инсталлов ноль' : 'инсталл $' + inst.toFixed(1) + ' — дороже $8') + '. Правило Вани: на $40+ без депа с таким инсталлом — выкл.');
+  if (reg == null || reg > 40) return v('kill', 'ВЫРУБАЙ, НЕ ДУБЛИРУЙ', 'kill', 'Рега ' + (reg == null ? 'нет' : '$' + reg.toFixed(1)) + ' — дороже $40. У пацанов с такой регой на $80+ в плюс выходил 1 из 4, в среднем в ноль.');
+  return v('keep', 'ДЕРЖИ ДО $160, НЕ ДУБЛИРУЙ', reg <= 25 ? 'good' : 'warn', 'Рега $' + reg.toFixed(1) + (reg <= 25 ? ' — хорошая.' : ' — средняя, но до $40 у пацанов в плюс выходили ~45%.') + ' Нет депа к $160 — выкл.');
 };
 
 function q(arr, p) { if (!arr.length) return 0; var a = arr.slice().sort(function (x, y) { return x - y; }); var i = (a.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i); return a[lo] + (a[hi] - a[lo]) * (i - lo); }
@@ -135,13 +138,13 @@ FD.pbRecs = function (rows) {
       var ad = g(r, 'fb_adset_name');
       if (hasTotalAdset && String(ad) !== 'Total') return;
       recs.push({ day: +day, month: g(r, 'Дата — Месяц'), year: g(r, 'Дата — Год'), dn: FD.dayNum ? FD.dayNum(g(r, 'Дата — Год'), g(r, 'Дата — Месяц'), +day) : null, camp: String(camp), adset: hasTotalAdset ? null : (ad != null ? String(ad) : null), ad: hasTotalAdset ? null : (g(r, 'fb_ad_name') != null ? String(g(r, 'fb_ad_name')) : null),
-        spend: FD.num(r[spendCol]), imp: FD.num(g(r, 'Impressions')), clk: FD.num(g(r, 'Click')), regs: FD.num(g(r, 'Regs')), fd: FD.num(g(r, 'FD')), rev: FD.num(g(r, 'К выплате')) });
+        spend: FD.num(r[spendCol]), imp: FD.num(g(r, 'Impressions')), clk: FD.num(g(r, 'Click')), regs: FD.num(g(r, 'Regs')), inst: FD.num(g(r, 'installs')), fd: FD.num(g(r, 'FD')), rev: FD.num(g(r, 'К выплате')) });
     });
   } else {
     data.forEach(function (r) {
       var ad = g(r, 'fb_ad_name'); if (ad == null) return; ad = String(ad);
       if (ad === 'Total' || /automatic|Примененные/.test(ad) || String(g(r, 'offer_name')) !== 'Total') return;
-      recs.push({ day: null, camp: null, ad: ad, spend: FD.num(r[spendCol]), imp: FD.num(g(r, 'Impressions')), clk: FD.num(g(r, 'Click')), regs: FD.num(g(r, 'Regs')), fd: FD.num(g(r, 'FD')), rev: FD.num(g(r, 'К выплате')) });
+      recs.push({ day: null, camp: null, ad: ad, spend: FD.num(r[spendCol]), imp: FD.num(g(r, 'Impressions')), clk: FD.num(g(r, 'Click')), regs: FD.num(g(r, 'Regs')), inst: FD.num(g(r, 'installs')), fd: FD.num(g(r, 'FD')), rev: FD.num(g(r, 'К выплате')) });
     });
   }
   if (!recs.length) throw new Error('Строк с цифрами не нашёл. Проверь, что выгрузка с днями и с названиями кампаний или креативов.');

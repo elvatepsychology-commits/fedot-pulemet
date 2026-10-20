@@ -378,3 +378,10 @@ footer{max-width:1240px;margin:40px auto 0;color:var(--muted);font-size:13px;bor
 #bubbleText::-webkit-scrollbar{width:6px}#bubbleText::-webkit-scrollbar-thumb{background:rgba(26,20,51,.25);border-radius:3px}
 .hdr-stop{display:none;background:var(--kill,#e5484d)!important;border-color:transparent!important;color:#fff!important}
 body.speaking .hdr-stop{display:inline-flex}
+.mapctl{margin:10px 0}.mapctl .chips{margin:0 0 8px}
+.mchecks{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:6px 0}
+.mchecks .ctl{padding:5px 10px;font-size:12.5px}
+#stTable th[data-sk]{cursor:pointer;user-select:none;white-space:nowrap}
+#stTable th[data-sk]:hover{color:var(--acc)}
+#stTable tr[data-st]{cursor:pointer}#stTable tr.dim td{opacity:.55}
+#stTableCard{margin-top:14px}

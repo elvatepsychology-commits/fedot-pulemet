@@ -171,8 +171,9 @@ FD.quick = function (pb, fb, period, mode) {
   function inP(x) { return x.dn == null || ((from == null || x.dn >= from) && (to == null || x.dn <= to)); }
   var C = {}, warn = [];
   function slot(key) { return C[key] || (C[key] = { key: key, pb: null, fb: null, camps: {}, info: null, story: null, minLaunch: null }); }
-  function add(o, x) { ['spend', 'clk', 'regs', 'fd', 'rev', 'imp'].forEach(function (k) { o[k] += x[k] || 0; }); }
-  function z() { return { spend: 0, clk: 0, regs: 0, fd: 0, rev: 0, imp: 0, n: 0 }; }
+  function add(o, x) { ['spend', 'clk', 'regs', 'fd', 'rev', 'imp', 'inst'].forEach(function (k) { o[k] += x[k] || 0; }); }
+  function z() { return { spend: 0, clk: 0, regs: 0, fd: 0, rev: 0, imp: 0, inst: 0, n: 0 }; }
+  var hasInst = !!(pb && pb.det && pb.det.hasInst);
   var orphan = { fd: 0, rev: 0 };
   var read = {};
   if (pb) { var rc = {}, rcr = {}, dd = []; read.pb = { spend: 0, fd: 0, camps: 0, cr: 0 }; pb.recs.forEach(function (x) { read.pb.spend += x.spend; read.pb.fd += x.fd; if (x.camp) rc[FD.normCamp(x.camp)] = 1; rcr[FD.crKey(x.camp, x.ad, x.adset, 'cr')] = 1; if (x.dn != null) dd.push(x.dn); }); read.pb.camps = Object.keys(rc).length; read.pb.cr = Object.keys(rcr).length; if (dd.length) read.pb.days = FD.dayStr(Math.min.apply(null, dd)) + '–' + FD.dayStr(Math.max.apply(null, dd)); }
@@ -222,7 +223,8 @@ FD.quick = function (pb, fb, period, mode) {
     var L = LIFE[o.key];
     o.life = L && (L.spend > o.spend + 0.5 || L.fd > o.fd) ? L : null;
     var ds = o.life || o;
-    o.v = FD.decide(ds.spend, ds.clk, ds.regs, ds.fd, o.age);
+    o.inst = hasInst && o.pb ? o.pb.inst : null;
+    o.v = FD.decide(ds.spend, ds.clk, ds.regs, ds.fd, o.age, hasInst && o.pb ? (o.life ? o.life.inst : o.pb.inst) : null);
     if (!multiDay && !pb && o.v.code !== 'wait') o.v.why = 'За сегодня: ' + o.v.why + ((o.v.code === 'kill' || o.v.code === 'cut') && o.age >= 2 ? ' Если в прошлые дни креатив давал депы — это выгорела эта копия (кампании живут ~2 дня): её выключай, а креатив заливай свежими копиями в новые штаты или РК.' : '');
     var dsRev = o.life ? o.life.rev : (o.pb ? o.pb.rev : (o.fb.rev || o.fb.fd * FD.PAYOUT));
     if ((o.v.code === 'cut' || o.v.code === 'kill') && ds.fd > 0 && dsRev >= ds.spend) o.v = { code: 'hold', label: 'ДЕРЖИ, НЕ ДУБЛИРУЙ', cls: 'good', why: 'Деп по $' + Math.round(ds.spend / ds.fd) + ' дороговат, но выплаты выше — по трекеру ты в плюсе (ROI ' + Math.round((dsRev / ds.spend - 1) * 100) + '%). Не режь. Дубли — когда деп станет дешевле $110.' };

@@ -149,7 +149,7 @@
   function renderPlanForm() {
     var p = FD.state.plan, now = new Date();
     $('#pNow').value = p.now || (String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'));
-    $('#pHours').value = p.hours || 8; $('#pLimit').value = p.limit || 1500; $('#pScheme').value = p.scheme || '3-5-1'; $('#pSleep').value = p.sleep || '01:00'; $('#pWake').value = p.wake || '10:00'; $('#pAccOld').value = p.accOld != null ? p.accOld : 3; $('#pAccNew').value = p.accNew != null ? p.accNew : 1; $('#pCapOld').value = p.capOld || 12; $('#pCapNew').value = p.capNew || 6; $('#pStories').value = p.stories || 4; $('#pNew').value = p.newN != null ? p.newN : 1; $('#pTS').value = p.tS || 10; $('#pTN').value = p.tN || 28;
+    $('#pHours').value = p.hours || 8; $('#pLimit').value = p.limit || 1500; $('#pScheme').value = p.scheme || '1-1-1'; $('#pSleep').value = p.sleep || '01:00'; $('#pWake').value = p.wake || '10:00'; $('#pAccOld').value = p.accOld != null ? p.accOld : 3; $('#pAccNew').value = p.accNew != null ? p.accNew : 1; $('#pCapOld').value = p.capOld || 12; $('#pCapNew').value = p.capNew || 6; $('#pStories').value = p.stories || 4; $('#pNew').value = p.newN != null ? p.newN : 1; $('#pTS').value = p.tS || 10; $('#pTN').value = p.tN || 28;
     if (!$('#planOut').dataset.done) buildPlan(false);
   }
   function toMin(t) { var p = String(t || '00:00').split(':'); return (+p[0] || 0) * 60 + (+p[1] || 0); }
@@ -157,7 +157,7 @@
   function pl(n, a, b, c) { var m = Math.abs(n) % 100, k = m % 10; return n + ' ' + (m > 10 && m < 20 ? c : k === 1 ? a : k >= 2 && k <= 4 ? b : c); }
   function buildPlan(talk) {
     var nowS = $('#pNow').value || '10:00', hours = Math.max(1, +$('#pHours').value || 1), limit = Math.max(50, +$('#pLimit').value || 50),
-      scheme = $('#pScheme').value || '3-5-1', accOld = Math.max(0, +$('#pAccOld').value || 0), accNew = Math.max(0, +$('#pAccNew').value || 0),
+      scheme = $('#pScheme').value || '1-1-1', accOld = Math.max(0, +$('#pAccOld').value || 0), accNew = Math.max(0, +$('#pAccNew').value || 0),
       capOld = Math.max(1, +$('#pCapOld').value || 12), capNew = Math.max(1, +$('#pCapNew').value || 6), acc = Math.max(1, accOld + accNew), stories = Math.max(1, +$('#pStories').value || 1),
       newWant = Math.max(0, +$('#pNew').value || 0), tS = Math.max(3, +$('#pTS').value || 10), tN = Math.max(5, +$('#pTN').value || 28);
     var sleepS = $('#pSleep').value || '01:00', wakeS = $('#pWake').value || '10:00';
@@ -524,21 +524,59 @@
 
   /* ---------- КАРТА ---------- */
   var TILES = { AK: [0, 0], ME: [10, 0], WI: [5, 1], VT: [9, 1], NH: [10, 1], WA: [0, 2], ID: [1, 2], MT: [2, 2], ND: [3, 2], MN: [4, 2], IL: [5, 2], MI: [6, 2], NY: [8, 2], MA: [9, 2], OR: [0, 3], NV: [1, 3], WY: [2, 3], SD: [3, 3], IA: [4, 3], IN: [5, 3], OH: [6, 3], PA: [7, 3], NJ: [8, 3], CT: [9, 3], RI: [10, 3], CA: [0, 4], UT: [1, 4], CO: [2, 4], NE: [3, 4], MO: [4, 4], KY: [5, 4], WV: [6, 4], VA: [7, 4], MD: [8, 4], DE: [9, 4], AZ: [1, 5], NM: [2, 5], KS: [3, 5], AR: [4, 5], TN: [5, 5], NC: [6, 5], SC: [7, 5], OK: [3, 6], LA: [4, 6], MS: [5, 6], AL: [6, 6], GA: [7, 6], HI: [0, 7], TX: [3, 7], FL: [8, 7] };
+  /* карта: рекомендация или ROI по выбранным месяцам */
+  var MAPM = [[7, 'Июль', 'с 18-го'], [8, 'Август', ''], [9, 'Сентябрь', ''], [10, 'Октябрь', 'до ' + (FD.STM ? FD.STM.to : '18.10')]];
+  function mapCfg() { var c = FD.state.mapc || {}; if (!c.mode) c.mode = 'rec'; if (!c.months) c.months = [7, 8, 9, 10]; if (!c.sort) c.sort = ['roi', -1]; FD.state.mapc = c; return c; }
+  function stAgg(k, months) {
+    var m = (FD.STM && FD.STM.m[k]) || {}, bu = (FD.STM && FD.STM.bu[k]) || {}, a = { s: 0, v: 0, d: 0, r: 0, b: {}, mp: 0, mn: 0 };
+    months.forEach(function (mo) { var x = m[mo]; if (!x) return; a.s += x[0]; a.v += x[1]; a.d += x[2]; a.r += x[3]; (bu[mo] || []).forEach(function (b) { a.b[b] = 1; }); if (x[0] >= 200) { a.mn++; if (x[1] > x[0]) a.mp++; } });
+    a.nb = Object.keys(a.b).length; a.roi = a.s ? (a.v / a.s - 1) * 100 : null; a.dep = a.d ? a.s / a.d : null; return a;
+  }
+  function roiTier(a) { if (!a || a.s < 500) return 'none'; return a.roi >= 50 ? 'go' : a.roi >= 20 ? 'test' : a.roi >= 0 ? 'watch' : 'stop'; }
   function renderMap() {
-    var el = $('#usmap'); if (el.dataset.done) return; el.dataset.done = 1;
+    var el = $('#usmap'), c = mapCfg(), byM = c.mode === 'm' && FD.STM;
+    if (!el.dataset.done) {
+      el.dataset.done = 1;
+      FD.ch.casStates($('#casinoList'), Object.keys(FD.STATES).filter(function (k) { return FD.STATES[k].tier !== 'stop'; }), 150);
+      $('#storyList').innerHTML = FD.STORIES.map(function (s) { return '<tr><td class="mono">' + esc(s[0]) + '</td><td>' + esc(s[1]) + '</td><td>' + esc(s[2]) + '</td></tr>'; }).join('');
+      $('#mapCtl').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-mm]'); if (b) { c.mode = b.dataset.mm; save(); renderMap(); return; }
+        var q = e.target.closest('[data-mq]'); if (q) { c.months = q.dataset.mq === 'all' ? [7, 8, 9, 10] : [9, 10]; c.mode = 'm'; save(); renderMap(); }
+      });
+      $('#mapCtl').addEventListener('change', function (e) { var cb = e.target.closest('[data-mo]'); if (!cb) return; var mo = +cb.dataset.mo; c.months = c.months.filter(function (x) { return x !== mo; }); if (cb.checked) c.months.push(mo); c.months.sort(); c.mode = 'm'; save(); renderMap(); });
+      $('#stTable').addEventListener('click', function (e) { var th = e.target.closest('[data-sk]'); if (!th) return; var k = th.dataset.sk; c.sort = [k, c.sort[0] === k ? -c.sort[1] : (k === 'k' ? 1 : -1)]; save(); renderMap(); });
+    }
+    $('#mapCtl').innerHTML = '<div class="chips" role="group"><button type="button" data-mm="rec" aria-pressed="' + !byM + '">Рекомендация «куда лить»</button><button type="button" data-mm="m" aria-pressed="' + !!byM + '">ROI по выбранным месяцам</button></div>'
+      + (FD.STM ? '<div class="mchecks">' + MAPM.map(function (m) { return '<label class="chk"><input type="checkbox" data-mo="' + m[0] + '"' + (c.months.indexOf(m[0]) > -1 ? ' checked' : '') + '> ' + m[1] + (m[2] ? ' <span class="mut">(' + m[2] + ')</span>' : '') + '</label>'; }).join('') + '<button type="button" class="ctl" data-mq="all">Все</button><button type="button" class="ctl" data-mq="last2">Сент + окт</button></div>' : '')
+      + '<p class="mut sm">' + (byM ? 'Цвет = ROI всей команды за выбранные месяцы (' + pl(c.months.length, 'месяц', 'месяца', 'месяцев') + '): зелёный +50% и выше, оранжевый +20–50%, жёлтый 0–20%, красный — минус, серый — меньше $500 спенда. На плитке — ROI.' : 'Цвет = куда лить сейчас (по всей команде, главный вес у 10–18 октября). Включи «ROI по выбранным месяцам», чтобы выбрать месяцы галочками.') + '</p>';
+    $('#mapLegend').innerHTML = byM ? '<span><i style="background:var(--good)"></i>ROI +50% и выше</span><span><i style="background:var(--acc)"></i>+20–50%</span><span><i style="background:var(--warn)"></i>0–20%</span><span><i style="background:var(--kill)"></i>минус</span><span><i style="background:var(--panel2)"></i>меньше $500 спенда</span>' : '<span><i style="background:var(--good)"></i>Лить первым</span><span><i style="background:var(--acc)"></i>Тестить срочно</span><span><i style="background:var(--warn)"></i>Можно, следи</span><span><i style="background:var(--kill)"></i>Осторожно</span><span><i style="background:var(--panel2)"></i>Нет данных</span>';
     el.innerHTML = Object.keys(TILES).map(function (k) {
-      var st = FD.STATES[k], tier = st ? st.tier : 'none';
-      var lab = !st ? '' : (st.tier === 'stop' && /^−/.test(st.now) ? 'сейчас ' + st.now : st.tier === 'stop' && st.dep == null ? 'не лить' : st.all);
+      var tier, lab;
+      if (byM) { var a = stAgg(k, c.months); tier = roiTier(a); lab = a.s >= 500 ? (a.roi >= 0 ? '+' : '−') + Math.abs(Math.round(a.roi)) + '%' : (a.s ? '$' + Math.round(a.s) : ''); }
+      else { var st = FD.STATES[k]; tier = st ? st.tier : 'none'; lab = !st ? '' : (st.tier === 'stop' && /^−/.test(st.now) ? 'сейчас ' + st.now : st.tier === 'stop' && st.dep == null ? 'не лить' : st.all); }
       return '<button class="tile t-' + tier + '" data-st="' + k + '" style="grid-column:' + (TILES[k][0] + 1) + ';grid-row:' + (TILES[k][1] + 1) + '"><b>' + k + '</b><span>' + lab + '</span></button>';
     }).join('');
-    FD.ch.casStates($('#casinoList'), Object.keys(FD.STATES).filter(function (k) { return FD.STATES[k].tier !== 'stop'; }), 150);
-    $('#storyList').innerHTML = FD.STORIES.map(function (s) { return '<tr><td class="mono">' + esc(s[0]) + '</td><td>' + esc(s[1]) + '</td><td>' + esc(s[2]) + '</td></tr>'; }).join('');
+    var card = $('#stTableCard'); card.hidden = !byM;
+    if (byM) {
+      var rows = Object.keys(TILES).map(function (k) { var a = stAgg(k, c.months); a.k = k; return a; }).filter(function (a) { return a.s > 0; });
+      var sk = c.sort[0], dir = c.sort[1], val = function (a) { return sk === 'k' ? a.k : sk === 'dep' ? (a.dep == null ? 1e9 : a.dep) : sk === 'mp' ? (a.mn ? a.mp / a.mn : -1) : a[sk] == null ? -1e9 : a[sk]; };
+      rows.sort(function (x, y) { var big = (y.s >= 500) - (x.s >= 500); if (sk !== 'k' && sk !== 's' && big) return big; var p = val(x), q = val(y); return (p > q ? 1 : p < q ? -1 : 0) * dir; });
+      var H = [['k', 'Штат'], ['s', 'Спенд'], ['d', 'Депы'], ['dep', 'Цена депа'], ['roi', 'ROI'], ['nb', 'Баеров'], ['mp', 'Месяцев в плюсе']];
+      $('#stTable').innerHTML = '<thead><tr>' + H.map(function (h) { return '<th data-sk="' + h[0] + '"' + (h[0] !== 'k' ? ' class="n"' : '') + '>' + h[1] + (sk === h[0] ? (dir > 0 ? ' ▲' : ' ▼') : '') + '</th>'; }).join('') + '</tr></thead><tbody>'
+        + rows.map(function (a) { var thin = a.s < 500; return '<tr data-st="' + a.k + '"' + (thin ? ' class="dim"' : '') + '><td><b>' + a.k + '</b> <span class="mut sm">' + esc(STN[a.k] || '') + '</span></td><td class="n">' + money(a.s) + '</td><td class="n">' + a.d + '</td><td class="n">' + (a.dep ? '$' + Math.round(a.dep) : '—') + '</td><td class="n ' + (thin ? '' : a.roi >= 0 ? 'good' : 'bad') + '">' + (a.roi == null ? '—' : pct(a.roi)) + '</td><td class="n">' + a.nb + '</td><td class="n">' + (a.mn ? a.mp + ' из ' + a.mn : '—') + '</td></tr>'; }).join('') + '</tbody>';
+    }
+  }
+  var STN = { AL: 'Алабама', AK: 'Аляска', AZ: 'Аризона', AR: 'Арканзас', CA: 'Калифорния', CO: 'Колорадо', CT: 'Коннектикут', DE: 'Делавэр', FL: 'Флорида', GA: 'Джорджия', HI: 'Гавайи', ID: 'Айдахо', IL: 'Иллинойс', IN: 'Индиана', IA: 'Айова', KS: 'Канзас', KY: 'Кентукки', LA: 'Луизиана', ME: 'Мэн', MD: 'Мэриленд', MA: 'Массачусетс', MI: 'Мичиган', MN: 'Миннесота', MS: 'Миссисипи', MO: 'Миссури', MT: 'Монтана', NE: 'Небраска', NV: 'Невада', NH: 'Нью-Гэмпшир', NJ: 'Нью-Джерси', NM: 'Нью-Мексико', NY: 'Нью-Йорк', NC: 'Сев. Каролина', ND: 'Сев. Дакота', OH: 'Огайо', OK: 'Оклахома', OR: 'Орегон', PA: 'Пенсильвания', RI: 'Род-Айленд', SC: 'Юж. Каролина', SD: 'Юж. Дакота', TN: 'Теннесси', TX: 'Техас', UT: 'Юта', VT: 'Вермонт', VA: 'Вирджиния', WA: 'Вашингтон', WV: 'Зап. Вирджиния', WI: 'Висконсин', WY: 'Вайоминг' };
+  function stMonthsHtml(k) {
+    if (!FD.STM || !FD.STM.m[k]) return '';
+    var m = FD.STM.m[k];
+    return '<h4>По месяцам (вся команда)</h4><table class="t"><tr><th>Месяц</th><th class="n">Спенд</th><th class="n">Депы</th><th class="n">ROI</th><th class="n">Баеров</th></tr>' + MAPM.map(function (mm) { var x = m[mm[0]]; if (!x) return '<tr><td>' + mm[1] + '</td><td class="n" colspan="4">—</td></tr>'; var r = x[0] ? (x[1] / x[0] - 1) * 100 : null; return '<tr><td>' + mm[1] + (mm[2] ? ' <span class="mut sm">(' + mm[2] + ')</span>' : '') + '</td><td class="n">' + money(x[0]) + '</td><td class="n">' + x[2] + '</td><td class="n ' + (x[0] < 200 ? '' : r >= 0 ? 'good' : 'bad') + '">' + (r == null ? '—' : pct(r)) + '</td><td class="n">' + ((FD.STM.bu[k] || {})[mm[0]] || []).length + '</td></tr>'; }).join('') + '</table>';
   }
   function stateInfo(k) {
     var st = FD.STATES[k], box = $('#stateInfo');
-    if (!st) { box.innerHTML = '<h3>' + k + '</h3><p>По этому штату у пацанов почти нет данных. Лей только как тест, $50–80 на креатив.</p>'; FD.say(k + '? Тут никто толком не лил. Хочешь быть первым — тестируй аккуратно.'); return; }
+    if (!st) { box.innerHTML = '<h3>' + k + (STN[k] ? ' · ' + STN[k] : '') + '</h3><p>Рекомендации по этому штату нет — мало свежих данных. Лей только как тест, $50–80 на креатив.</p>' + stMonthsHtml(k); FD.say(k + '? Тут никто толком не лил. Хочешь быть первым — тестируй аккуратно.'); return; }
     var t = FD.TIER[st.tier];
-    box.innerHTML = '<span class="pill ' + t[1] + '">' + t[0] + '</span><h3>' + k + ' · ' + esc(st.n) + '</h3><table class="t"><tr><td>Сейчас (вся команда, 10–18 окт)</td><td>' + esc(st.now) + '</td></tr><tr><td>Сентябрь</td><td>' + esc(st.sep) + '</td></tr><tr><td>Все вместе</td><td><b>' + esc(st.all) + '</b>' + (st.dep ? ' · деп $' + st.dep : '') + '</td></tr></table><p>' + esc(st.note) + '</p>';
+    box.innerHTML = '<span class="pill ' + t[1] + '">' + t[0] + '</span><h3>' + k + ' · ' + esc(st.n) + '</h3><table class="t"><tr><td>Сейчас (вся команда, 10–18 окт)</td><td>' + esc(st.now) + '</td></tr><tr><td>Сентябрь</td><td>' + esc(st.sep) + '</td></tr><tr><td>Все вместе</td><td><b>' + esc(st.all) + '</b>' + (st.dep ? ' · деп $' + st.dep : '') + '</td></tr></table><p>' + esc(st.note) + '</p>' + stMonthsHtml(k);
     var line = { go: 'Сюда лей в первую очередь, братан. Плюсует и сейчас, и раньше.', test: 'Сейчас тут плюс, но объёма мало. Тестируй, пока толпа не набежала.', watch: 'Можно, но смотри в оба. Деп тут дороже.', stop: 'Осторожно. Тут либо выжгли свои, либо минус. Не лезь, пока есть штаты получше.' }[st.tier];
     var cs = FD.casByState(k).filter(function (c) { return c[5] >= 100 && c[2] != null; });
     if (cs.length) { var cbox = document.createElement('div'); box.appendChild(cbox); FD.ch.casStates(cbox, [k], 100); }
@@ -662,12 +700,13 @@
   function calc() {
     var nn = function (id) { var v = +$(id).value; return isFinite(v) && v > 0 ? v : 0; };
     var S = nn('#cS'), K = Math.round(nn('#cK')), Rr = Math.round(nn('#cR')), D = Math.round(nn('#cD')), A = Math.max(1, Math.round(nn('#cA')) || 1);
-    var v = FD.decide(S, K, Rr, D, A), e = FD.EXPLAIN[v.code] || {}; v.S = S; v.K = K;
+    var Iraw = ($('#cI') || {}).value, Ii = Iraw == null || String(Iraw).trim() === '' ? null : Math.max(0, Math.round(+Iraw));
+    var v = FD.decide(S, K, Rr, D, A, Ii), e = FD.EXPLAIN[v.code] || {}; v.S = S; v.K = K;
     var cb = FD.COMBO[v.code] || FD.COMBO.keep;
     var h = '<span class="pill big ' + v.cls + '">' + v.label + '</span>'
       + '<div class="combo"><div class="combo-r"><span>Кампания</span><b class="' + cb.camp[0] + '">' + cb.camp[1] + '</b><em>' + esc(cb.camp[2]) + '</em></div><div class="combo-r"><span>Дубли</span><b class="' + cb.dub[0] + '">' + cb.dub[1] + '</b><em>' + esc(cb.dub[2]) + '</em></div></div>'
       + '<p>' + esc(FD.clean(v.why)) + '</p>' +
-      '<p class="mono mut">клик ' + (v.cpc ? '$' + v.cpc.toFixed(2) : '—') + ' · рега ' + (v.reg ? '$' + v.reg.toFixed(1) : '—') + ' · ' + (v.dep ? 'деп $' + Math.round(v.dep) : 'прогноз депа ' + (v.est ? '~$' + Math.round(v.est) : '—')) + ' · выплата ~$158</p>' +
+      '<p class="mono mut">клик ' + (v.cpc ? '$' + v.cpc.toFixed(2) : '—') + ' · рега ' + (v.reg ? '$' + v.reg.toFixed(1) : '—') + (Ii != null ? ' · инсталл ' + (Ii ? '$' + (S / Ii).toFixed(1) : '0') : '') + ' · ' + (v.dep ? 'деп $' + Math.round(v.dep) : 'прогноз депа ' + (v.est ? '~$' + Math.round(v.est) : '—')) + ' · выплата ~$158</p>' +
       '<div class="explain"><div><b>Что это значит</b><p>' + esc(e.what || '') + '</p></div><div><b>Что нажать</b><p>' + esc(e.press || '') + '</p></div></div><details class="ladder-help"><summary>Что за «лестница»?</summary><p>' + LADDER_TXT + '</p></details>';
     var M = FD.similar(S, K, Rr, D, A); v.sim = M;
     if (M && M.n >= 8) {
@@ -700,7 +739,7 @@
     v.dayU = usTime($('#cDate').value, $('#cTime').value);
     return v;
   }
-  var LADDER_TXT = 'Лестница — это правило, когда выключать креатив без депа, по сумме спенда всех его копий: до $30 не трогаешь (только 0 кликов к $25 — выкл); $30–80 — выкл, если клик дороже $8 или нет ни одной реги к $60; $80–160 — держишь, если реги по $25 и дешевле и их 3+; $160 без депа — выкл.';
+  var LADDER_TXT = 'Лестница — это правило, когда выключать креатив без депа, по сумме спенда всех его копий: до $30 не трогаешь (только 0 кликов к $25 — выкл); $30–40 — клик дороже $5 → выкл; $40–80 — клик дороже $5, инсталл дороже $8 (из Power BI) или к $60 меньше 2 рег → выкл; $80–160 — держишь, если рега до $40 и инсталл до $8; $160 без депа — выкл.';
   function ladderNext(v) {
     var S = v.S || 0;
     if (v.dep) return { to: null, rule: 'смотришь цену депа: до $110 — дубли в другие РК, выше $150 два дня подряд — режь бюджет вдвое' };
@@ -867,6 +906,7 @@
     ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
     drop.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
     $('#usmap').addEventListener('click', function (e) { var t = e.target.closest('.tile'); if (t) stateInfo(t.dataset.st); });
+    $('#stTable').addEventListener('click', function (e) { if (e.target.closest('[data-sk]')) return; var r = e.target.closest('tr[data-st]'); if (r) { stateInfo(r.dataset.st); $('#stateInfo').scrollIntoView({ behavior: 'smooth', block: 'center' }); } });
     (function () {
       var now = new Date(), sel = $('#cTime'), opts = '';
       for (var m = 0; m < 1440; m += 30) opts += '<option>' + ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + (m % 60)).slice(-2) + '</option>';
@@ -874,7 +914,7 @@
       var mm = Math.floor((now.getHours() * 60 + now.getMinutes()) / 30) * 30; sel.value = ('0' + Math.floor(mm / 60)).slice(-2) + ':' + ('0' + (mm % 60)).slice(-2);
       $('#cDate').value = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
     })();
-    ['cS', 'cK', 'cR', 'cD', 'cA', 'cDate', 'cTime'].forEach(function (id) { $('#' + id).addEventListener('input', calc); $('#' + id).addEventListener('change', calc); });
+    ['cS', 'cK', 'cR', 'cD', 'cI', 'cA', 'cDate', 'cTime'].forEach(function (id) { $('#' + id).addEventListener('input', calc); $('#' + id).addEventListener('change', calc); });
     $('#cOut').addEventListener('click', function (e) { var b = e.target.closest('[data-ct]'); if (!b) return; CT = b.dataset.ct; $$('#cOut [data-ct]').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); $$('#cOut .ct-pane').forEach(function (p) { p.hidden = p.dataset.pane !== CT; }); });
     $('#cSay').onclick = function () { var v = calc(); FD.say(CT === 'day' ? daySay(v) : simSay(v), { mood: v.cls === 'kill' ? 'angry' : v.cls === 'acc' ? 'happy' : null }); };
     calc();
