@@ -1,11 +1,9 @@
-/* CRM: два блока — "Креативы" (ввод мета-данных + загрузка файлов) и "CRM" (парсинг CSV, статистика).
-   Нейминг: язык-команда-залив-связка-ФОРМАТ-скрипт-штат-слот-бренд-номер, напр. EN-MGM-209-176-STORY-920-ID-OFF-CDC-001.
-   Если база не настроена — работаем на localStorage. */
+/* CRM: Креативы в формате Notion — Кампания, Адсет, Креатив, Штат, Таргет, Статус, Фото/Крео, Казино, Ссылка на оффер.
+   Нейминг: язык-команда-залив-связка-ФОРМАТ-скрипт-штат-слот-бренд-номер, напр. EN-MGM-209-176-STORY-920-ID-OFF-CDC-001. */
 window.FD = window.FD || {};
 FD.CRM = {};
 
 (function (C) {
-  /* ---------- конфиг Supabase ---------- */
   var SUPA_URL = 'https://nugdmbjstwvpogsloqoq.supabase.co';
   var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51Z2RtYmpzdHd2cG9nc2xvcW9xIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0OTAyNjIsImV4cCI6MjEwODA2NjI2Mn0.8-vl3ffkHLwWJds5Rtb5FdHrBxLKrZk9cUgWNmEAjxs';
   C.hasSupa = function () { return !!(SUPA_URL && SUPA_KEY); };
@@ -105,7 +103,6 @@ FD.CRM = {};
     return function () { cl.removeChannel(ch); };
   };
 
-  /* ---------- Storage: загрузка файлов ---------- */
   C.uploadFile = function (file) {
     var cl = supa();
     if (!cl) return Promise.reject(new Error('Supabase не подключён'));
@@ -117,7 +114,6 @@ FD.CRM = {};
     });
   };
 
-  /* ---------- нейминг ---------- */
   C.buildName = function (f) {
     var parts = [f.lang, f.team, f.buyerOwn, f.buyerLink || f.buyerOwn, f.format];
     if (f.script) parts.push(f.script);
@@ -174,13 +170,20 @@ FD.CRM = {};
     return t;
   };
 
-  /* ---------- БЛОК 1: Креативы (ввод мета-данных + загрузка файлов) ---------- */
+  /* ---------- КРЕАТИВЫ: таблица как в Notion ---------- */
   C.renderCreativesMetrics = function (el, list) {
     var total = list.length;
-    var withFiles = list.filter(function (r) { return r.file_url; }).length;
+    var withFiles = list.filter(function (r) { return r.file_urls && r.file_urls.length; }).length;
+    var byBuyer = {};
+    C.cfg.buyers.forEach(function (b) { byBuyer[b.id] = 0; });
+    list.forEach(function (r) { if (r.buyer_own && byBuyer[r.buyer_own] !== undefined) byBuyer[r.buyer_own]++; });
+
     var h = '<div class="crm-metrics">';
     h += '<div class="crm-metric"><b>' + total + '</b><span>Всего креативов</span></div>';
     h += '<div class="crm-metric"><b>' + withFiles + '</b><span>С файлами</span></div>';
+    C.cfg.buyers.forEach(function (b) {
+      h += '<div class="crm-metric"><b>' + byBuyer[b.id] + '</b><span>' + b.nick + '</span></div>';
+    });
     h += '</div>';
     el.innerHTML = h;
   };
@@ -209,18 +212,28 @@ FD.CRM = {};
         return;
       }
 
-      var h = '<div class="crm-table"><table class="t"><thead><tr><th>Название</th><th>Нейминг FB</th><th>Байер</th><th>Скрипт</th><th>Штат</th><th>Казино</th><th>Превью</th><th>Оффер</th></tr></thead><tbody>';
+      var h = '<div class="crm-table"><table class="t"><thead><tr><th>Кампания</th><th>Адсет</th><th>Креатив</th><th>Штат</th><th>Таргет</th><th>Статус</th><th>Фото / Крео</th><th>Казино</th><th>Ссылка на оффер</th></tr></thead><tbody>';
       filtered.forEach(function (r) {
         var p = C.parseName(r.name);
+        var statusColor = r.status === 'test' ? 'warn' : r.status === 'dup' ? 'acc' : r.status === 'kill' ? 'kill' : r.status === 'hold' ? 'good' : '';
         h += '<tr data-id="' + r.id + '" style="cursor:pointer">';
         h += '<td><b>' + (r.friendly_name || '—') + '</b></td>';
+        h += '<td>' + (r.adset_id || '—') + '</td>';
         h += '<td class="mono" style="font-size:12px">' + (r.name || '—') + '</td>';
-        h += '<td>' + C.buyerNick(r.buyer_own) + (r.buyer_link && r.buyer_link !== r.buyer_own ? ' → ' + C.buyerNick(r.buyer_link) : '') + '</td>';
-        h += '<td>' + (p && p.script ? C.scriptLabel(p.script) : '—') + '</td>';
         h += '<td>' + (p ? C.stateName(p.state) : '—') + '</td>';
+        h += '<td>' + (r.target || '—') + '</td>';
+        h += '<td><span class="pill ' + statusColor + '" data-id="' + r.id + '" data-status="' + (r.status || 'test') + '">' + (r.status || 'test') + '</span></td>';
+        h += '<td>';
+        if (r.file_urls && r.file_urls.length) {
+          r.file_urls.slice(0, 3).forEach(function (url) {
+            h += '<img src="' + url + '" style="width:36px;height:36px;object-fit:cover;border-radius:4px;margin-right:4px;vertical-align:middle">';
+          });
+        } else {
+          h += '—';
+        }
+        h += '</td>';
         h += '<td>' + (r.brand ? C.brandName(r.brand) : '—') + '</td>';
-        h += '<td>' + (r.file_url ? '<img src="' + r.file_url + '" style="width:40px;height:40px;object-fit:cover;border-radius:6px">' : '—') + '</td>';
-        h += '<td>' + (r.offer_link ? '<a href="' + r.offer_link + '" target="_blank" style="color:var(--gold)">' + r.offer_link.replace(/^https?:\/\//, '') + '</a>' : '—') + '</td>';
+        h += '<td>' + (r.offer_link ? '<a href="' + r.offer_link + '" target="_blank" style="color:var(--gold);font-size:12px">' + r.offer_link.replace(/^https?:\/\//, '') + '</a>' : '—') + '</td>';
         h += '</tr>';
       });
       h += '</tbody></table></div>';
@@ -229,7 +242,25 @@ FD.CRM = {};
       el.querySelectorAll('tr[data-id]').forEach(function (tr) {
         tr.onclick = function () { C.editCreativeModal(tr.dataset.id); };
       });
+
+      el.querySelectorAll('.pill[data-id]').forEach(function (pill) {
+        pill.onclick = function (e) { e.stopPropagation(); C.changeStatus(pill.dataset.id, pill.dataset.status); };
+      });
     }).catch(function (e) { el.innerHTML = '<p class="bad">Ошибка загрузки: ' + e.message + '</p>'; });
+  };
+
+  C.changeStatus = function (id, currentStatus) {
+    var statuses = ['test', 'hold', 'dup', 'cut', 'kill', 'wait'];
+    var idx = statuses.indexOf(currentStatus);
+    var next = statuses[(idx + 1) % statuses.length];
+    C.list().then(function (list) {
+      var r = list.find(function (x) { return x.id === id; });
+      if (!r) return;
+      r.status = next;
+      return C.upsert(r);
+    }).then(function () {
+      C.renderCreativesList(document.querySelector('#creativesList'), {});
+    }).catch(function (e) { alert('Ошибка: ' + e.message); });
   };
 
   C.editCreativeModal = function (id) {
@@ -242,17 +273,24 @@ FD.CRM = {};
       h += '<h3>' + (r.friendly_name || r.name) + '</h3>';
       h += '<div class="modal-section">';
       h += '<h4>Основное</h4>';
-      h += '<div class="modal-row"><label>Название</label><input type="text" id="editFriendlyName" value="' + (r.friendly_name || '') + '"></div>';
-      h += '<div class="modal-row"><label>Нейминг FB</label><input type="text" id="editName" value="' + (r.name || '') + '" readonly style="background:var(--panel2);opacity:0.7"></div>';
-      h += '<div class="modal-row"><label>Название кампании FB</label><input type="text" id="editCampaignName" value="' + (r.campaign_name || '') + '"></div>';
-      h += '<div class="modal-row"><label>Название адсета FB</label><input type="text" id="editAdsetName" value="' + (r.adset_name || '') + '"></div>';
+      h += '<div class="modal-row"><label>Название кампании</label><input type="text" id="editFriendlyName" value="' + (r.friendly_name || '') + '" placeholder="Крео Дальнобой 1"></div>';
+      h += '<div class="modal-row"><label>Адсет</label><input type="text" id="editAdsetId" value="' + (r.adset_id || '') + '" placeholder="US0001"></div>';
+      h += '<div class="modal-row"><label>Креатив (нейминг FB)</label><input type="text" id="editName" value="' + (r.name || '') + '" readonly style="background:var(--panel2);opacity:0.7"></div>';
+      h += '<div class="modal-row"><label>Таргет (опционально)</label><input type="text" id="editTarget" value="' + (r.target || '') + '" placeholder="St. Charles + St. Louis metro area"></div>';
       h += '<div class="modal-row"><label>Ссылка на оффер</label><input type="text" id="editOfferLink" value="' + (r.offer_link || '') + '" placeholder="https://supervaca.store"></div>';
+      h += '<div class="modal-row"><label>Статус</label><select id="editStatus">';
+      ['test', 'hold', 'dup', 'cut', 'kill', 'wait'].forEach(function (s) {
+        h += '<option value="' + s + '"' + (r.status === s ? ' selected' : '') + '>' + s + '</option>';
+      });
+      h += '</select></div>';
       h += '</div>';
 
-      if (r.file_url) {
+      if (r.file_urls && r.file_urls.length) {
         h += '<div class="modal-section">';
-        h += '<h4>Превью</h4>';
-        h += '<img src="' + r.file_url + '" style="max-width:100%;border-radius:12px">';
+        h += '<h4>Файлы</h4>';
+        r.file_urls.forEach(function (url) {
+          h += '<img src="' + url + '" style="max-width:100%;border-radius:12px;margin-bottom:8px">';
+        });
         h += '</div>';
       }
 
@@ -270,19 +308,20 @@ FD.CRM = {};
       modal.querySelector('#deleteCreative').onclick = function () {
         if (!confirm('Удалить креатив ' + r.name + '?')) return;
         C.remove(id).then(function () {
-          FD.say && FD.say('Креатив удалён: ' + r.name, { mood: 'happy' });
+          FD.say && FD.say('Креатив удалён', { mood: 'happy' });
           modal.remove();
           C.renderCreativesList(document.querySelector('#creativesList'), {});
-        }).catch(function (e) { alert('Ошибка удаления: ' + e.message); });
+        }).catch(function (e) { alert('Ошибка: ' + e.message); });
       };
 
       modal.querySelector('#saveCreative').onclick = function () {
         r.friendly_name = modal.querySelector('#editFriendlyName').value;
-        r.campaign_name = modal.querySelector('#editCampaignName').value;
-        r.adset_name = modal.querySelector('#editAdsetName').value;
+        r.adset_id = modal.querySelector('#editAdsetId').value;
+        r.target = modal.querySelector('#editTarget').value;
         r.offer_link = modal.querySelector('#editOfferLink').value;
+        r.status = modal.querySelector('#editStatus').value;
         C.upsert(r).then(function () {
-          FD.say && FD.say('Креатив сохранён: ' + r.name, { mood: 'happy' });
+          FD.say && FD.say('Креатив сохранён', { mood: 'happy' });
           modal.remove();
           C.renderCreativesList(document.querySelector('#creativesList'), {});
         }).catch(function (e) { alert('Ошибка: ' + e.message); });
@@ -297,7 +336,8 @@ FD.CRM = {};
   C.renderCreativesForm = function (el) {
     var me = C.me || C.cfg.buyers[0].id;
     var h = '<div class="form crm-form">';
-    h += '<label>Название креатива<input id="cFriendlyName" type="text" placeholder="Крео Дальнобой 1"></label>';
+    h += '<label>Название кампании<input id="cFriendlyName" type="text" placeholder="Крео Дальнобой 1"></label>';
+    h += '<label>Адсет<input id="cAdsetId" type="text" placeholder="US0001"></label>';
     h += '<label>Байер залива<select id="cBuyerOwn">' + C.cfg.buyers.map(function (b) { return '<option value="' + b.id + '"' + (b.id === me ? ' selected' : '') + '>' + b.nick + ' (' + b.id + ')</option>'; }).join('') + '</select></label>';
     h += '<label>Язык<select id="cLang">' + C.cfg.langs.map(function (x) { return '<option value="' + x.id + '">' + x.name + '</option>'; }).join('') + '</select></label>';
     h += '<label>Команда<select id="cTeam">' + C.cfg.teams.map(function (x) { return '<option value="' + x.id + '">' + x.name + '</option>'; }).join('') + '</select></label>';
@@ -306,13 +346,12 @@ FD.CRM = {};
     h += '<label>Штат<select id="cState">' + C.cfg.states.map(function (s) { return '<option value="' + s.id + '">' + s.name + '</option>'; }).join('') + '</select></label>';
     h += '<label>Слот<select id="cSlot">' + C.cfg.slots.map(function (x) { return '<option value="' + x.id + '">' + x.name + '</option>'; }).join('') + '</select></label>';
     h += '<label>Бренд/казино<select id="cBrand">' + C.cfg.brands.map(function (b) { return '<option value="' + b.id + '">' + b.name + '</option>'; }).join('') + '</select></label>';
-    h += '<label>Название кампании FB (опц.)<input id="cCampName" type="text" placeholder="Как в Ads Manager"></label>';
-    h += '<label>Название адсета FB (опц.)<input id="cAdsetName" type="text" placeholder="Как в Ads Manager"></label>';
+    h += '<label>Таргет (опц.)<input id="cTarget" type="text" placeholder="St. Charles + St. Louis metro area"></label>';
     h += '<label>Ссылка на оффер<input id="cOfferLink" type="text" placeholder="https://supervaca.store"></label>';
-    h += '<label style="grid-column:1/-1">Файл креатива<input id="cFile" type="file" accept="image/*,video/*"></label>';
+    h += '<label style="grid-column:1/-1">Файлы креатива (можно несколько)<input id="cFiles" type="file" accept="image/*,video/*" multiple></label>';
     h += '<button class="btn" id="cAdd" type="button">Добавить креатив</button>';
     h += '</div>';
-    h += '<div id="cNamePreview" class="card" style="margin-top:12px"><h4>Нейминг для FB</h4><p id="cNameText" class="mono" style="font-size:15px;word-break:break-all">—</p></div>';
+    h += '<div id="cNamePreview" class="card" style="margin-top:12px"><h4>Нейминг креатива для FB</h4><p id="cNameText" class="mono" style="font-size:15px;word-break:break-all">—</p></div>';
     el.innerHTML = h;
 
     function upd() {
@@ -334,28 +373,29 @@ FD.CRM = {};
         script: el.querySelector('#cScript').value || null, state: el.querySelector('#cState').value,
         slot: el.querySelector('#cSlot').value, brand: el.querySelector('#cBrand').value
       };
-      var file = el.querySelector('#cFile').files[0];
+      var files = Array.from(el.querySelector('#cFiles').files);
       var friendlyName = el.querySelector('#cFriendlyName').value.trim();
-      var campaignName = el.querySelector('#cCampName').value.trim();
-      var adsetName = el.querySelector('#cAdsetName').value.trim();
+      var adsetId = el.querySelector('#cAdsetId').value.trim();
+      var target = el.querySelector('#cTarget').value.trim();
       var offerLink = el.querySelector('#cOfferLink').value.trim();
 
       C.list().then(function (list) {
         f.num = C.nextNum(list, f);
         var row = {
           friendly_name: friendlyName || null,
+          adset_id: adsetId || null,
           name: C.buildName(f), lang: f.lang, team: f.team, buyer_own: f.buyerOwn, buyer_link: f.buyerOwn,
           format: f.format, script: f.script, state: f.state, slot: f.slot, brand: f.brand, num: f.num,
-          campaign_name: campaignName || null, adset_name: adsetName || null,
+          target: target || null,
           offer_link: offerLink || null,
           upload_date: new Date().toISOString().split('T')[0],
           status: 'test', stats: [],
           created_by: C.buyerNick(f.buyerOwn)
         };
 
-        if (file) {
-          return C.uploadFile(file).then(function (url) {
-            row.file_url = url;
+        if (files.length) {
+          return Promise.all(files.map(function (file) { return C.uploadFile(file); })).then(function (urls) {
+            row.file_urls = urls;
             return C.upsert(row);
           });
         } else {
@@ -364,17 +404,17 @@ FD.CRM = {};
       }).then(function () {
         FD.say && FD.say('Креатив добавлен: ' + el.querySelector('#cNameText').textContent, { mood: 'happy' });
         el.querySelector('#cFriendlyName').value = '';
-        el.querySelector('#cCampName').value = '';
-        el.querySelector('#cAdsetName').value = '';
+        el.querySelector('#cAdsetId').value = '';
+        el.querySelector('#cTarget').value = '';
         el.querySelector('#cOfferLink').value = '';
-        el.querySelector('#cFile').value = '';
+        el.querySelector('#cFiles').value = '';
         upd();
         C.renderCreativesList(document.querySelector('#creativesList'), {});
       }).catch(function (e) { alert('Ошибка: ' + e.message); });
     };
   };
 
-  /* ---------- БЛОК 2: CRM (парсинг CSV + статистика) ---------- */
+  /* ---------- CRM: парсинг CSV + статистика ---------- */
   C.renderMetrics = function (el, list) {
     var total = 0, totalSpend = 0, totalRoi = 0, testCount = 0;
     list.forEach(function (r) {
@@ -447,20 +487,6 @@ FD.CRM = {};
     }).catch(function (e) { el.innerHTML = '<p class="bad">Ошибка загрузки: ' + e.message + '</p>'; });
   };
 
-  C.changeStatus = function (id, currentStatus) {
-    var statuses = ['test', 'hold', 'dup', 'cut', 'kill', 'wait'];
-    var idx = statuses.indexOf(currentStatus);
-    var next = statuses[(idx + 1) % statuses.length];
-    C.list().then(function (list) {
-      var r = list.find(function (x) { return x.id === id; });
-      if (!r) return;
-      r.status = next;
-      return C.upsert(r);
-    }).then(function () {
-      C.renderList(document.querySelector('#crmList'), {});
-    }).catch(function (e) { alert('Ошибка: ' + e.message); });
-  };
-
   C.editModal = function (id) {
     C.list().then(function (list) {
       var r = list.find(function (x) { return x.id === id; });
@@ -513,10 +539,10 @@ FD.CRM = {};
       modal.querySelector('#crmDeleteCreative').onclick = function () {
         if (!confirm('Удалить креатив ' + r.name + '?')) return;
         C.remove(id).then(function () {
-          FD.say && FD.say('Креатив удалён: ' + r.name, { mood: 'happy' });
+          FD.say && FD.say('Креатив удалён', { mood: 'happy' });
           modal.remove();
           C.renderList(document.querySelector('#crmList'), {});
-        }).catch(function (e) { alert('Ошибка удаления: ' + e.message); });
+        }).catch(function (e) { alert('Ошибка: ' + e.message); });
       };
 
       modal.querySelector('#crmAddStat').onclick = function () {
@@ -551,7 +577,7 @@ FD.CRM = {};
         });
         r.stats = stats;
         C.upsert(r).then(function () {
-          FD.say && FD.say('Креатив сохранён: ' + r.name, { mood: 'happy' });
+          FD.say && FD.say('Креатив сохранён', { mood: 'happy' });
           modal.remove();
           C.renderList(document.querySelector('#crmList'), {});
         }).catch(function (e) { alert('Ошибка: ' + e.message); });
@@ -563,7 +589,6 @@ FD.CRM = {};
     });
   };
 
-  /* ---------- парсинг CSV из Facebook ---------- */
   C.parseCSV = function (file) {
     return FD.readFile(file).then(function (rows) {
       var meta = FD.detect(rows);
@@ -623,7 +648,7 @@ FD.CRM = {};
         });
       });
     }).then(function (result) {
-      FD.say && FD.say('Импортировано: ' + result.matched + ' креативов, ' + result.added + ' новых записей статистики', { mood: 'happy' });
+      FD.say && FD.say('Импортировано: ' + result.matched + ' креативов, ' + result.added + ' новых записей', { mood: 'happy' });
       C.renderList(document.querySelector('#crmList'), {});
     }).catch(function (e) {
       alert('Ошибка парсинга: ' + e.message);
