@@ -33,7 +33,6 @@
   }
 
   /* ---------- вкладки ---------- */
-  var crmUnsub = null;
   function show(tab) {
     $$('.tab').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false'); });
     $$('.view').forEach(function (v) { v.hidden = v.id !== 'v-' + tab; });
@@ -42,105 +41,7 @@
     if (tab === 'review') renderReview();
     if (tab === 'map') renderMap();
     if (tab === 'plan') renderPlanForm();
-
-    if (tab === 'creatives') {
-      FD.CRM.renderCreativesForm($('#creativesForm'));
-      FD.CRM.renderCreativesList($('#creativesList'), {});
-
-      var filterBuyerEl = $('#creativesFilterBuyer');
-      var searchEl = $('#creativesSearch');
-      if (filterBuyerEl) {
-        filterBuyerEl.innerHTML = FD.CRM.cfg.buyers.map(function (b) {
-          return '<button type="button" class="chip" data-buyer="' + b.id + '">' + b.nick + '</button>';
-        }).join('');
-        filterBuyerEl.querySelectorAll('.chip').forEach(function (btn) {
-          btn.onclick = function (e) {
-            e.preventDefault();
-            btn.classList.toggle('on');
-            updateCreativesList();
-          };
-        });
-      }
-
-      if (searchEl) {
-        searchEl.oninput = updateCreativesList;
-      }
-
-      if (crmUnsub) crmUnsub();
-      crmUnsub = FD.CRM.onChange(function (payload) {
-        console.log('Creatives realtime update:', payload);
-        updateCreativesList();
-      });
-
-      function updateCreativesList() {
-        var selectedBuyers = Array.from(filterBuyerEl.querySelectorAll('.chip.on')).map(function (b) { return b.dataset.buyer; });
-        var search = searchEl ? searchEl.value : '';
-        FD.CRM.renderCreativesList($('#creativesList'), {
-          buyer: selectedBuyers.length === 1 ? selectedBuyers[0] : (selectedBuyers.length > 1 ? 'multi:' + selectedBuyers.join(',') : null),
-          search: search
-        });
-      }
-    }
-
-    if (tab === 'crm') {
-      $('#crmSetup').hidden = FD.CRM.hasSupa();
-      FD.CRM.renderList($('#crmList'), {});
-
-      var dropZone = $('#crmDropZone');
-      var fileInput = $('#crmFileInput');
-
-      if (dropZone) {
-        dropZone.ondragover = function (e) { e.preventDefault(); dropZone.classList.add('over'); };
-        dropZone.ondragleave = function (e) { e.preventDefault(); dropZone.classList.remove('over'); };
-        dropZone.ondrop = function (e) {
-          e.preventDefault();
-          dropZone.classList.remove('over');
-          var file = e.dataTransfer.files[0];
-          if (file) FD.CRM.importCSV(file);
-        };
-      }
-
-      if (fileInput) {
-        fileInput.onchange = function () {
-          var file = fileInput.files[0];
-          if (file) FD.CRM.importCSV(file);
-        };
-      }
-
-      var filterBuyerEl = $('#crmFilterBuyer');
-      var searchEl = $('#crmSearch');
-      if (filterBuyerEl) {
-        filterBuyerEl.innerHTML = FD.CRM.cfg.buyers.map(function (b) {
-          return '<button type="button" class="chip" data-buyer="' + b.id + '">' + b.nick + '</button>';
-        }).join('');
-        filterBuyerEl.querySelectorAll('.chip').forEach(function (btn) {
-          btn.onclick = function (e) {
-            e.preventDefault();
-            btn.classList.toggle('on');
-            updateCrmList();
-          };
-        });
-      }
-
-      if (searchEl) {
-        searchEl.oninput = updateCrmList;
-      }
-
-      if (crmUnsub) crmUnsub();
-      crmUnsub = FD.CRM.onChange(function (payload) {
-        console.log('CRM realtime update:', payload);
-        updateCrmList();
-      });
-
-      function updateCrmList() {
-        var selectedBuyers = Array.from(filterBuyerEl.querySelectorAll('.chip.on')).map(function (b) { return b.dataset.buyer; });
-        var search = searchEl ? searchEl.value : '';
-        FD.CRM.renderList($('#crmList'), {
-          buyer: selectedBuyers.length === 1 ? selectedBuyers[0] : (selectedBuyers.length > 1 ? 'multi:' + selectedBuyers.join(',') : null),
-          search: search
-        });
-      }
-    }
+    if (tab === 'camp' && FD.camp) FD.camp.render();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
